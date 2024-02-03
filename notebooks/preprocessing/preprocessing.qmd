@@ -8,26 +8,58 @@ editor: visual
 # Install and Load Libraries
 
 ```{r Initial Setup and Library Loading, echo=TRUE, eval=FALSE}
-# Code for loading necessary libraries and preparing the environment
 # Load the pacman package (install if necessary)
 if (!requireNamespace("pacman", quietly = TRUE)) {
   install.packages("pacman")
 }
 
-# Install and load necessary libraries
-pacman::p_load(haven, here, lubridate, sjlabelled, survival, tidyverse)
+# Install and load prerequisite libraries
+pacman::p_load(haven, here, lubridate, sjlabelled, labelled, survival, tidyverse)
+
+# Create the 'logs' subdirectory if not already accessible
+log_dir <- here("logs")
+if (!dir.exists(log_dir)) {
+  dir.create(log_dir)
+}
+
+# Create the 'data/raw' subdirectory if not already accessible
+data_raw_dir <- here("data", "raw")
+if (!dir.exists(data_raw_dir)) {
+  dir.create(data_raw_dir, recursive = TRUE)
+}
+
+# Create the 'data/processed' subdirectory if not already accessible
+data_processed_dir <- here("data", "processed")
+if (!dir.exists(data_processed_dir)) {
+  dir.create(data_processed_dir, recursive = TRUE)
+}
+
+# Define the study period start and end dates
+observation_period_start_date <- as.Date("2006-10-01")
+observation_period_end_date <- as.Date("2012-10-01")
+study_end_date <- as.Date("2022-10-01")
 ```
 
-```{r Define a function to import data}
-# Define a function to import the data with error handling
-import_data <- function(file_path, file_type = c(".sav", ".csv")) {
+```{r Define a function to import the data}
+#' Import data from a file
+#'
+#' This function imports data from a file in either .sav or .csv format.
+#'
+#' @param file_path A character string specifying the path to the file to be imported.
+#' @param file_type A character string specifying the file type. Must be either 'sav' or 'csv'.
+#' @return A data frame containing the imported data.
+#' @export
+#' @examples
+#' import_data("data.csv", "csv")
+
+import_data <- function(file_path, file_type = c("sav", "csv")) {
   tryCatch({
     if (file_type == "sav") {
       read_sav(file_path)
     } else if (file_type == "csv") {
       read.csv(file_path)
     } else {
-      stop("Unsupported file type. Please specify '.sav' or '.csv'.")
+      stop("Unsupported file type. Please specify 'sav' or 'csv'.")
     }
   }, error = function(e) {
     cat("Error importing file:", file_path, "\nError message:", e$message, "\n")
@@ -37,115 +69,60 @@ import_data <- function(file_path, file_type = c(".sav", ".csv")) {
 ```
 
 ```{r Import data}
-# Import baseline and follow-up data
 # Specify the file paths to the datasets
-baseline_path <- here("data/raw/TBIMS_2023Q2_SPSS/TBIMSForm1_20230712.sav")
-followup_path <- here("data/raw/TBIMS_2023Q2_SPSS/TBIMSForm2_20230726.sav")
-function_scores_path <- here("data/raw/function_factorscore.csv")
+tbims_form1_path <- here(data_raw_dir, "TBIMS_2023Q2_SPSS/TBIMSForm1_20230712.sav")
+tbims_form2_path <- here(data_raw_dir, "TBIMS_2023Q2_SPSS/TBIMSForm2_20230726.sav")
+function_scores_path <- here(data_raw_dir, "function_factorscore20240131.csv")
 
 # Import TBIMS Form 1 and Form 2 data
-baseline_data <- import_data(baseline_path, file_type = "sav")
-followup_data <- import_data(followup_path, file_type = "sav")
+tbims_form1_data <- import_data(tbims_form1_path, file_type = "sav")
+tbims_form2_data <- import_data(tbims_form2_path, file_type = "sav")
 
-# Import factor scores
-function_data <- import_data(function_scores_path, file_type = "csv")
+# Save original TBIMS Form 1 and Form 2 variable labels before proceeding
+tbims_form1_labels <- tbims_form1_data |> var_label()
+tbims_form2_labels <- tbims_form2_data |> var_label()
+
+# Import function factor scores
+function_factor_scores <- import_data(function_scores_path, file_type = "csv")
 ```
 
-```{r Defining Baseline Variables}
-# List of baseline variables to carry forward to subsequent observations
-baseline_vars <- c(
-  "date_of_birth", "date_of_injury", "sex", "age", "cause_of_injury",
-  "marital_status_at_injury", "education_level_at_injury",
-  "employment_at_injury", "rehab_payor_primary", "suicide_attempt_hx_lifetime"
-)
-```
+## Define Data Cleaning Functions
 
+```{r Define Data Cleaning Functions}
+#' Handle Date conversions and NA replacement
+#'
+#' This function handles Date conversions and replaces specified na_codes (in Date format) with NA.
+#'
+#' @param x A vector.
+#' @param na_codes A vector of codes that represent missing values.
+#' @return A vector with missing values replaced by NA.
+#' @export
+handle_date_conversion <- function(x, na_codes) {
+  # Convert to Date if x is not already a Date
+  if (!inherits(x, "Date")) {
+    x <- as.Date(x)
+  }
 
--   Use `readr` or `data.table` to efficiently import your data from CSV or other common formats.
--   Check for any import warnings or errors. \## Study Eligibility Criteria
--   Apply the primary exclusion criterion based on participants' dates of enrollment at this stage.
--   Exclude participants who do not meet this criterion.
--   Document the number of participants excluded and the rationale for the exclusion. \## Data Inspection
--   Examine the structure of your dataset using `str()`.
--   Check for missing values using `summary()` or `naniar` package functions.
--   After applying the eligibility criteria, examine the structure of the subset dataset using `str()` to ensure that only eligible participants remain. \## Data Imputation
--   Decide on an appropriate imputation method for missing values, considering the nature of the data and potential bias.
--   Utilize packages like `mice`, `missForest`, or `Amelia` for imputation.
--   Document your imputation process thoroughly. \## Variable Transformation
--   Convert variables to the correct data types (e.g., factors, dates) using functions like `as.factor()` and `as.Date()`.
--   Create derived variables if needed (e.g., time-to-event variables for survival analysis). \## Outlier Handling
--   Identify and deal with outliers based on domain knowledge.
--   Use visualization tools like boxplots or scatterplots to help identify outliers.
--   Consider robust statistical methods if appropriate. \## Feature Selection
--   Choose relevant variables for your survival analysis based on domain expertise.
--   Remove redundant or irrelevant variables.
--   Document your rationale for variable selection. \## Data Recoding
--   Recode categorical variables as necesssary, ensuring proper encoding for regression models.
--   Create indicator variables for categorical variables using `model_matrix()`. \## Time-to-Event Conversion
--   If your dataset doesn't already have time-to-event data, calculate it based on relevant timestamps.
--   Create a survival object using the `Surv()` function from the `survival` package. \## Data Exploration
--   Conduct exploratory data analysis (EDA) to understand the distribution of variables and relationships.
--   Use plots like Kaplan-Meier curves and survival curves to visualize survival patterns. \# Data Preprocessing for Models
--   Normalize or standardize continuous predictors if needed.
--   Check for multicollinearity among predictors.
--   Ensure proportional hazards assumption is met (e.g., using Schoenfeld residuals). \## Documentation and Version Control
--   Comment your code thoroughly to explain each step.
--   Use Git for version control and track changes in your data cleaning process. \## Reproducibility
--   Organize your code into functions or scripts to ensure reproducibility.
--   Consider using R Markdown for creating comprehensive analysis reports. \## Quality Control
--   Double-check for any data anomalies or errors before proceeding with analysis. \## Backup
--   Regularly back up your cleaned dataset to avoid accidental loss.
+  # Replace specified na_codes (in Date format) with NA
+  na_codes <- lapply(na_codes, function(code) as.Date(code, format = "%Y-%m-%d"))
+  for (code in na_codes) {
+    x[x == code] <- NA
+  }
 
-### Survival Data Setup
+  return(x)
+}
 
--   Calculate or ensure you have a time-to-event variable (survival time) and a censoring indicator variable.
--   Create a survival object using the `Surv()` function from the `survival` package (e.g., `Surv(time_to_event, event_indicator)`). \## Exploratory Data Analysis (EDA)
--   Conduct EDA to understand the distribution of survival times using Kaplan-Meier curves, survival curves, and summary statistics.
-
-```{r Create Sample Dataset for ChatGPT, include=FALSE}
-# # Set a seed for reproducibility
-# #set.seed(42)
-# set.seed(148)
-# # Sample 20 random participants from baseline_data
-# sampled_indices <- sample(1:nrow(baseline_data), 10)
-# 
-# # Create a common random seed for both data frames
-# common_seed <- sample(1:10000, 1)
-# 
-# # Sample the same 20 participants from followup_data using the common seed
-# sampled_baseline_data <- baseline_data[sampled_indices, ]
-# sampled_followup_data <- followup_data %>%
-#   filter(Mod1id %in% sampled_baseline_data$Mod1id)
-# 
-# # Select variables to include in the final CSV output
-# selected_baseline_vars <- c("Mod1id", "SexF", "Injury", "Death", "Cause", "Mar", "EduYears", "EMPLOYMENT", "RehabPay1", "Suicide", "PROBLEMUse")
-# selected_followup_vars <- c("Mod1id", "FollowUpPeriod", "IntStatus", "Followup", "DeathF", "SuicideF", "PROBLEMUseF", "PHQPleasureF", "PHQDownF", "PHQSleepF", "PHQTiredF", "PHQEAtF", "PHQBadF", "PHQConcentrateF", "PHQSlowF", "PHQDeadF")
-# 
-# # Extract the selected variables from the sampled data frames
-# sampled_baseline_data <- sampled_baseline_data %>%
-#   select(all_of(selected_baseline_vars)) %>%
-#   arrange(Mod1id)
-# 
-# sampled_followup_data <- sampled_followup_data %>%
-#   select(all_of(selected_followup_vars)) %>%
-#   arrange(Mod1id, FollowUpPeriod)
-# 
-# # Export the sampled data frames to CSV files
-# write.csv(sampled_baseline_data, here("data/test/sampled_baseline_data.csv"), row.names = FALSE)
-# write.csv(sampled_followup_data, here("data/test/sampled_followup_data.csv"), row.names = FALSE)
-```
-
-TO CHATGPT: you also recommended inspecting the data after successfully importing. can you provide more detailed guidance on how to perform this step successfully for a large clinical dataset? you mentioned using str() to examine the structure of the imported datasets, as well as checking for missing values using summary() and/or naniar package functions. please demonstrate how to perform each of these suggestions and any other steps that would help an investigator properly inspect their data.
-
-TO CHATGPT: you advised applying the study eligibility criteria to the imported datasets prior to inspecting the data. currently, the clinical data for this project are stored in two separate data frames: `baseline_data` (which contains one observation per Mod1id \[i.e., wide format data\], where the data within represent baseline data collected during the participant's course of hospitalization) and `followup_data` (which contains multiple observations per Mod1id \[i.e., long format data\], where the data within represent follow-up data collected after the participant's discharge from the hospital, at approximately 1, 2, and 5 years after the participant's Injury date, and every 5 years thereafter).
-
-The `followup_data` observations can be arranged in order by the `FollowUpPeriod` variable, which contains levels corresponding to the follow-up interim (e.g., 1 = Year 1; 2 = Year 2; 5 = Year 5; 10 = Year 10; 15 = Year 15...). Because the `baseline_data` contain only one observation per participant, there is no existing variable to arrange the observations. Thus, in order to best
-
-## Data Cleaning
-
-```{r Defining Data Cleaning Functions}
-# Define functions for data cleaning and conversion
-# Function to replace specified missing codes with NA and convert data types
+#' Replace missing values and convert data types
+#'
+#' This function replaces specified missing value codes with NA and converts data types.
+#'
+#' @param x A vector.
+#' @param na_codes A vector of codes that represent missing values.
+#' @param to_class The class to which the vector should be converted.
+#' @return A vector with missing values replaced by NA.
+#' @export
+#' @examples
+#' replace_na(c(1, 2, 3, 4, 5), c(3, 4), "factor")
 replace_na <- function(x, na_codes, to_class = NULL) {
   original_labels <- NULL
 
@@ -174,117 +151,135 @@ replace_na <- function(x, na_codes, to_class = NULL) {
   return(x)
 }
 
-# Helper function to handle Date conversion and NA replacement
-handle_date_conversion <- function(x, na_codes) {
-  # Convert to Date if x is not already a Date
-  if (!inherits(x, "Date")) {
-    x <- as.Date(x)
-  }
-
-  # Replace specified na_codes (in Date format) with NA
-  na_codes <- lapply(na_codes, function(code) as.Date(code, format = "%Y-%m-%d"))
-  for (code in na_codes) {
-    x[x == code] <- NA
-  }
-
-  return(x)
-}
-
-# Function to clean and convert data based on mapping rules
+#' Clean and convert data based on mapping rules
+#'
+#' This function cleans and converts data based on the rules outlined in a mapping list.
+#'
+#' @param data A data frame.
+#' @param mapping_list A list of mapping rules.
+#' @return A cleaned and converted data frame.
+#' @export
+#' @examples
+#' clean_and_convert(mtcars, list(cyl = list(na_values = c(4, 6), original_name = "cyl", to_class = "factor")))
 clean_and_convert <- function(data, mapping_list) {
   for (var in names(mapping_list)) {
     na_values <- mapping_list[[var]]$na_values
-    new_name <- mapping_list[[var]]$new_name
+    original_name <- mapping_list[[var]]$original_name
     to_class <- mapping_list[[var]]$to_class
     
-    data <- data %>%
-      rename(!!var := all_of(new_name)) %>%
-      mutate(!!var := replace_na(!!sym(var), na_values, to_class)) %>%
+    data <- data |>
+      rename(!!var := all_of(original_name)) |>
+      mutate(!!var := replace_na(!!sym(var), na_values, to_class)) |>
       mutate(!!var := haven::zap_labels(!!sym(var)))
   }
   return(data)
 }
 ```
 
-```{r Defining Data Mappings for Data Cleaning}
-# Mappings for baseline data
-baseline_mappings_and_na <- list(
-  id = list(new_name = "Mod1id", to_class = "numeric"),
-  sex = list(new_name = "SexF", na_values = 99, to_class = "factor"),
-  age = list(new_name = "AGE", na_values = 9999, to_class = "numeric"),
-  date_of_birth = list(new_name = "Birth", na_values = as.Date("9999-09-09"), to_class = "Date"),
-  date_of_injury = list(new_name = "Injury", na_values = as.Date("9999-09-09"), to_class = "Date"),
-  date_of_death = list(new_name = "Death", na_values = as.Date(c("8888-08-08", "9999-09-09")), to_class = "Date"),
-  cause_of_injury = list(new_name = "Cause", na_values = 999, to_class = "factor"),
-  marital_status_at_injury = list(new_name = "Mar", na_values = 99, to_class = "factor"),
-  education_level_at_injury = list(new_name = "EduYears", na_values = c(666, 999), to_class = "factor"),
-  employment_at_injury = list(new_name = "EMPLOYMENT", na_values = c(888, 999), to_class = "factor"),
-  rehab_payor_primary = list(new_name = "RehabPay1", na_values = c(888, 999), to_class = "factor"),
-  suicide_attempt_hx_lifetime = list(new_name = "Suicide", na_values = c(66, 77, 88, 99), to_class = "factor"),
-  problematic_substance_use = list(new_name = "PROBLEMUse", na_values = c(77, 99), to_class = "factor")
+```{r Define the Data Mappings for Data Cleaning}
+# Variable name and NA mappings for baseline data
+baseline_name_and_na_mappings <- list(
+  id = list(original_name = "Mod1id", to_class = "numeric"),
+  sex = list(original_name = "SexF", na_values = 99, to_class = "factor"),
+  age = list(original_name = "AGE", na_values = 9999, to_class = "numeric"),
+  date_of_birth = list(original_name = "Birth", na_values = as.Date("9999-09-09"), to_class = "Date"),
+  date_of_injury = list(original_name = "Injury", na_values = as.Date("9999-09-09"), to_class = "Date"),
+  date_of_death = list(original_name = "Death", na_values = as.Date(c("8888-08-08", "9999-09-09")), to_class = "Date"),
+  cause_of_injury = list(original_name = "Cause", na_values = 999, to_class = "factor"),
+  marital_status_at_injury = list(original_name = "Mar", na_values = 99, to_class = "factor"),
+  education_level_at_injury = list(original_name = "EduYears", na_values = c(21, 666, 999), to_class = "numeric"),
+  employment_at_injury = list(original_name = "EMPLOYMENT", na_values = c(888, 999), to_class = "factor"),
+  rehab_payor_primary = list(original_name = "RehabPay1", na_values = c(888, 999), to_class = "factor"),
+  problematic_substance_use_at_injury = list(original_name = "PROBLEMUse", na_values = c(77, 99), to_class = "factor"),
+  suicide_attempt_hx_lifetime_at_injury = list(original_name = "Suicide", na_values = c(66, 77, 88, 99), to_class = "factor"),
+  suicide_attempt_hx_past_year_at_injury = list(original_name = "SuicidePrior", na_values = c(66, 77, 88, 99), to_class = "factor")
   )
 
-# Mappings for follow-up data
-followup_mappings_and_na <- list(
-  id = list(new_name = "Mod1id", to_class = "numeric"),
-  data_collection_period = list(new_name = "FollowUpPeriod", to_class = "numeric"),
-  status_at_followup = list(new_name = "IntStatus", to_class = "factor"),
-  date_of_followup = list(new_name = "Followup", na_values = as.Date(c("4444-04-04", "5555-05-05", "7777-07-07", "8888-08-08", "9999-09-09")), to_class = "Date"),
-  date_of_death = list(new_name = "DeathF", na_values = as.Date(c("4444-04-04", "8888-08-08", "9999-09-09")), to_class = "Date"),
-  suicide_attempt_hx_past_year = list(new_name = "SuicideF", na_values = c(66, 77, 88, 99), to_class = "factor"),
-  problematic_substance_use = list(new_name = "PROBLEMUseF", na_values = c(77, 99), to_class = "factor"),
-  phq1 = list(new_name = "PHQPleasureF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq2 = list(new_name = "PHQDownF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq3 = list(new_name = "PHQSleepF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq4 = list(new_name = "PHQTiredF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq5 = list(new_name = "PHQEAtF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq6 = list(new_name = "PHQBadF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq7 = list(new_name = "PHQConcentrateF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq8 = list(new_name = "PHQSlowF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
-  phq9 = list(new_name = "PHQDeadF", na_values = c(66, 81, 82, 99), to_class = "numeric")
+# Variable name and NA mappings for follow-up data
+followup_name_and_na_mappings <- list(
+  id = list(original_name = "Mod1id", to_class = "numeric"),
+  data_collection_period = list(original_name = "FollowUpPeriod", to_class = "numeric"),
+  status_at_followup = list(original_name = "IntStatus", to_class = "factor"),
+  date_of_followup = list(original_name = "Followup", na_values = as.Date(c("4444-04-04", "5555-05-05", "7777-07-07", "8888-08-08", "9999-09-09")), to_class = "Date"),
+  date_of_death = list(original_name = "DeathF", na_values = as.Date(c("4444-04-04", "8888-08-08", "9999-09-09")), to_class = "Date"),
+  drs_total_at_followup = list(original_name = "DRSF", na_values = 999, to_class = "numeric"),
+  fim_total_at_followup = list(original_name = "FIMTOTF", na_values = 9999, to_class = "numeric"),
+  gose_total_at_followup = list(original_name = "GOSEF", na_values = c(66, 99), to_class = "numeric"),
+  problematic_substance_use_at_followup = list(original_name = "PROBLEMUseF", na_values = c(77, 99), to_class = "factor"),
+  suicide_attempt_hx_past_year_at_followup = list(original_name = "SuicideF", na_values = c(66, 77, 88, 99), to_class = "factor"),
+  phq1 = list(original_name = "PHQPleasureF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq2 = list(original_name = "PHQDownF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq3 = list(original_name = "PHQSleepF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq4 = list(original_name = "PHQTiredF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq5 = list(original_name = "PHQEAtF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq6 = list(original_name = "PHQBadF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq7 = list(original_name = "PHQConcentrateF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq8 = list(original_name = "PHQSlowF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
+  phq9 = list(original_name = "PHQDeadF", na_values = c(66, 81, 82, 99), to_class = "numeric")
   )
 ```
 
-```{r Cleaning Baseline and Follow-up Data}
-# Add a unique identifier to baseline data
-baseline_data <- baseline_data %>%
+```{r Clean Baseline and Follow-up Data}
+# Add data collection period to baseline data
+tbims_form1_data <- tbims_form1_data |>
   mutate(data_collection_period = 0)
 
-# Clean baseline and follow-up data
-clean_baseline_data <- clean_and_convert(baseline_data, baseline_mappings_and_na)
-clean_followup_data <- clean_and_convert(followup_data, followup_mappings_and_na)
+# Clean and convert the Form 1 (baseline) and Form 2 (follow-up) data
+clean_tbims_form1_data <- clean_and_convert(tbims_form1_data, baseline_name_and_na_mappings)
+clean_tbims_form2_data <- clean_and_convert(tbims_form2_data, followup_name_and_na_mappings)
 ```
 
-```{r Merging Baseline and Follow-up Data and Coalescing Variables}
+```{r Merge Baseline and Follow-up Data and Coalesce Shared Variables}
 # Merge cleaned data
-merged_data <- full_join(clean_baseline_data, clean_followup_data, by = c("id", "data_collection_period"))
+merged_data <- full_join(clean_tbims_form1_data, clean_tbims_form2_data, by = c("id", "data_collection_period"))
 
-# Coalesce variables
-merged_data <- merged_data %>%
+# Append Year 1 functional independence scores and coalesce variables shared between TBIMS Form 1 and Form 2
+merged_data <- merged_data |>
+  # left_join(function_factor_scores |> select(id, func), by = "id") |>
+  left_join(function_factor_scores, by = "id") |>
+  rename(func_score_at_year_1 = func) |>
   mutate(
-    date_of_death = coalesce(date_of_death.x, date_of_death.y),
-    problematic_substance_use = coalesce(problematic_substance_use.x, problematic_substance_use.y)
+    date_of_death = coalesce(date_of_death.x, date_of_death.y)
+    # problematic_substance_use = coalesce(problematic_substance_use.x, problematic_substance_use.y),
+    # suicide_attempt_hx_past_year = coalesce(suicide_attempt_hx_past_year_at_injury, suicide_attempt_hx_past_year_at_followup)
   )
 ```
 
-The `combine_value_labels` function is designed for combining the value labels from two different variables into a single set of labels. This function is particularly useful when dealing with variables that have been coalesced from multiple data sources and need a unified set of labels. This function takes two arguments, `var` and `var2`, which are the variables from which you want to combine labels. It returns a unified list of labels deduplicated across these variables.
+The `combine_value_labels` function is designed to combine the value labels from two different variables into a single set of labels. This function is particularly useful when dealing with variables that have been coalesced from multiple data sources that need a unified set of value labels. The function takes two arguments, `var` and `var2`, which are the variables for which you want to combine the labels. The function then returns a unified list of de-duplicated labels across these variables.
 
-The `update_labels_with_sjlabelled` function is used to update the value labels of factor variables within a data frame based on their current levels. It's particularly useful in data cleaning and preprocessing stages where value labels need to be consistent with the actual data after various transformations. This function takes two arguments: `data`, the dataframe to be processed, and `mapping_lists`, a list of mappings that specify how to handle each variable in the dataframe. The function iteratively updates each factor variable's labels to ensure they align with the actual data present after various transformations.
+The `update_labels_with_sjlabelled` function is used to update the value labels of factor variables within a data frame based on their current levels. It's particularly useful as a pre-processing step to ensure that the value labels are consistent with the actual data after they have undergone various transformations. This function takes two arguments: `data`, the data frame to be processed, and `mapping_lists`, a list of mappings that specify how to handle each variable in the dataframe. The function iteratively updates each factor variable's labels to ensure that they align with the data present after various transformations.
 
-```{r Defining Functions for Combining and Updating Value Labels}
-# Define functions for managing value labels
-# Function to combine value labels from two variables into a unified label set
-combine_value_labels <- function(var1, var2) {
-  # Retrieve value labels from the first variable
-  labels1 <- get_labels(var1, values = "n")
-  # Retrieve value labels from the second variable
-  labels2 <- get_labels(var2, values = "n")
-  # Combine and de-duplicate the labels from both variables
-  combined_labels <- unique(c(labels1, labels2))
-  return(combined_labels)
-}
+```{r Define a Function to Manage, Combine, and Update Value Labels}
+#' Combine value labels from two variables into a unified label set
+#'
+#' This function combines value labels from two variables and returns a vector of unique labels.
+#'
+#' @param var1 A variable with value labels.
+#' @param var2 A variable with value labels.
+#' @return A vector of unique value labels.
+#' @export
+#' @examples
+#' combine_value_labels(c(1, 2, 3), c(2, 3, 4))
+# combine_value_labels <- function(var1, var2) {
+#   # Retrieve value labels from the first variable
+#   labels1 <- get_labels(var1, values = "n")
+#   # Retrieve value labels from the second variable
+#   labels2 <- get_labels(var2, values = "n")
+#   # Combine and de-duplicate the labels from both variables
+#   combined_value_labels <- unique(c(labels1, labels2))
+#   return(combined_value_labels)
+# }
 
-# Function to update value labels of factor variables defined in mapping lists
+#' Update value labels of factor variables defined in mapping lists
+#'
+#' This function updates value labels of factor variables defined in mapping lists.
+#'
+#' @param data A data frame.
+#' @param mapping_lists A list of mapping rules.
+#' @return An updated data frame.
+#' @export
+#' @examples
+#' update_labels_with_sjlabelled(mtcars, list(cyl = list(na_values = c(4, 6), original_name = "cyl", to_class = "factor")))
 update_labels_with_sjlabelled <- function(data, mapping_lists) {
   # Loop through each mapping list
   for (mapping_list in mapping_lists) {
@@ -308,25 +303,196 @@ update_labels_with_sjlabelled <- function(data, mapping_lists) {
 }
 ```
 
-```{r Updating Desired Value Labels}
-# Apply label management to the merged dataset
-# Combine and update value labels for problematic_substance_use
-combined_labels <- combine_value_labels(merged_data$problematic_substance_use.x, merged_data$problematic_substance_use.y)
-merged_data$problematic_substance_use <- set_labels(merged_data$problematic_substance_use, labels = combined_labels)
+```{r Update Desired Value Labels}
+# # Apply label management to the merged dataset
+# # Combine and update the value labels for the coalesced 'problematic_substance_use' variable
+# combined_value_labels <- combine_value_labels(merged_data$problematic_substance_use.x, merged_data$problematic_substance_use.y)
+# merged_data$problematic_substance_use <- set_labels(merged_data$problematic_substance_use, labels = combined_value_labels)
 
-# Update value labels for other variables
-merged_data <- update_labels_with_sjlabelled(merged_data, list(baseline_mappings_and_na, followup_mappings_and_na))
+# Update value labels of variables in the mapping lists
+merged_data <- update_labels_with_sjlabelled(merged_data, list(baseline_name_and_na_mappings, followup_name_and_na_mappings))
 ```
 
-```{r Imputing Baseline Variables and Maintaining Factor Labels}
-# List of baseline variables to carry forward to subsequent observations
+```{r Process the Factor Variables in the Merged Data}
+merged_data <- merged_data |>
+# Perform additional calculations, collapse factor levels, and convert data types
+  mutate(
+    # Calculate age at time of injury (if missing)
+    age = if_else(is.na(age), floor(as.duration(interval(date_of_birth, date_of_injury))/dyears(1)), age),
+    
+    # Specify the value labels associated with follow-up interview status
+    status_at_followup = fct_recode(status_at_followup,
+                                    Followed = "1",
+                                    Lost = "2",
+                                    Refused = "3",
+                                    Incarcerated = "4",
+                                    Withdrew = "5",
+                                    Expired = "6",
+                                    "No Funding" = "7"),
+    
+    # Set 'Male' as the reference group for sex
+    sex = fct_recode(sex,
+                     Male = "1",
+                     Female = "2"
+                     ) |>
+      fct_relevel("Male", "Female"),
+    
+    # Collapse and reorder the levels of the cause of injury covariate
+    cause_of_injury = fct_recode(cause_of_injury,
+                                 "Motor Vehicle" = "1",
+                                 Motorcycle = "2",
+                                 Bicycle = "3",
+                                 "All-Terrain Vehicle (ATV) and All-Terrain Cycle (ATC)" = "4",
+                                 "Other Vehicular: Unclassified" = "5",
+                                 "Gunshot Wound" = "10",
+                                 "Assaults With Blunt Instrument" = "11",
+                                 "Other Violence" = "12",
+                                 "Water Sports" = "13",
+                                 "Field/Track Sports" = "14",
+                                 "Gymnastic Activities" = "15",
+                                 "Winter Sports" = "16",
+                                 "Air Sports" = "17",
+                                 "Other Sports" = "18",
+                                 "Fall" = "19",
+                                 "Hit By Falling/Flying Object" = "20",
+                                 "Pedestrian" = "21",
+                                 "Other Unclassified" = "22"
+                                 ) |>
+      fct_collapse(
+        Vehicular = c("Motor Vehicle", "Motorcycle", "Bicycle", "All-Terrain Vehicle (ATV) and All-Terrain Cycle (ATC)",
+                      "Other Vehicular: Unclassified"),
+        Falls = "Fall",
+        Violence = c("Gunshot Wound", "Assaults With Blunt Instrument", "Other Violence"),
+        Other = c("Water Sports", "Field/Track Sports", "Gymnastic Activities", "Winter Sports", "Air Sports",
+                  "Other Sports", "Hit By Falling/Flying Object", "Pedestrian", "Other Unclassified")
+      ) |>
+      fct_relevel("Vehicular", "Falls", "Violence", "Other"),
+    
+    # Collapse and reorder the levels of the marital status at injury covariate
+    marital_status_at_injury = fct_recode(marital_status_at_injury,
+                                          "Single (Never Married)" = "1",
+                                          Married = "2",
+                                          Divorced = "3",
+                                          Separated = "4",
+                                          Widowed = "5",
+                                          Other = "7"
+                                          ) |>
+      fct_collapse(
+        Single = "Single (Never Married)",
+        Married = "Married",
+        Divorced = "Divorced",
+        Other = c("Separated", "Widowed", "Other")
+      ) |>
+      fct_relevel("Single", "Married", "Divorced", "Other"),
+    
+    # Collapse and reorder the levels of 'EMPLOYMENT'
+    employment_at_injury = employment_at_injury |>
+      fct_recode(
+        "Full Time Student" = "2",
+        "Part Time Student" = "3",
+        "Special Education" = "4",
+        "Competitively Employed" = "5",
+        "Homemaker" = "7",
+        "Special Employed" = "8",
+        Retired = "9",
+        Unemployed = "10",
+        Volunteer = "11",
+        Other = "12"
+      ) |>
+      fct_collapse(
+        "Competitively Employed" = "Competitively Employed",
+        Unemployed = "Unemployed",
+        Student = c("Full Time Student", "Part Time Student", "Special Education"),
+        Other = c("Special Employed", "Homemaker", "Retired", "Volunteer", "Other")
+      ) |>
+      fct_relevel("Competitively Employed", "Unemployed", "Student", "Other"),
+    
+    # Add the SES proxy covariate based on primary health insurance coverage for rehabilitation services
+    rehab_payor_primary_type = if_else(rehab_payor_primary == "2", 1, 0),
+    rehab_payor_primary_type = factor(rehab_payor_primary_type, levels = c(0, 1), labels = c("Non-Medicaid", "Medicaid")),
+    
+    # Collapse and reorder the levels of the primary rehabilitation payor covariate
+    rehab_payor_primary = rehab_payor_primary |>
+      fct_recode(
+        Medicare = "1",
+        Medicaid = "2",
+        "Workers Compensation" = "3",
+        "Private Insurance" = "4",
+        "Self or Private Pay" = "7",
+        "State or County" = "8",
+        "Auto Insurance" = "10",
+        Charity = "14",
+        Other = "15",
+        "Payor Source Pending" = "55"
+      ) |>
+      fct_collapse(
+        "Private Insurance" = c("Private Insurance", "Workers Compensation", "Auto Insurance"),
+        "Public Insurance" = c("Medicaid", "Medicare", "State or County"),
+        Other = c("Self or Private Pay", "Charity", "Payor Source Pending", "Other")
+      ) |>
+      fct_relevel("Private Insurance", "Public Insurance", "Other"),
+    
+    # Set 'No' as the reference group for the problematic substance use at time of injury covariate
+    problematic_substance_use_at_injury = fct_recode(problematic_substance_use_at_injury,
+                                           No = "0",
+                                           Yes = "1"
+                                           ) |>
+      fct_relevel("No", "Yes"),
+    
+    # Set 'No' as the reference group for the problematic substance use at follow-up covariate
+    problematic_substance_use_at_followup = fct_recode(problematic_substance_use_at_followup,
+                                            No = "0",
+                                            Yes = "1"
+                                            ) |>
+      fct_relevel("No", "Yes"),
+    
+    # Set 'No' as the reference group for the lifetime hx of suicide attempt at time of injury covariate
+    suicide_attempt_hx_lifetime_at_injury = fct_recode(suicide_attempt_hx_lifetime_at_injury,
+                                             No = "0",
+                                             Yes = "1"
+                                             ) |>
+      fct_relevel("No", "Yes"),
+    
+    # Set 'No' as the reference group for the past-year hx of suicide attempt at time of injury covariate
+    suicide_attempt_hx_past_year_at_injury = fct_recode(suicide_attempt_hx_past_year_at_injury,
+                                              No = "0",
+                                              Yes = "1"
+                                              ) |>
+      fct_relevel("No", "Yes"),
+    
+    # Set 'No' as the reference group for the past-year hx of suicide attempt at follow-up covariate
+    suicide_attempt_hx_past_year_at_followup = fct_recode(suicide_attempt_hx_past_year_at_followup,
+                                              No = "0",
+                                              Yes = "1"
+                                              ) |>
+      fct_relevel("No", "Yes")
+    
+    # # Set 'No' as the reference group for the past-year hx of suicide attempt covariate
+    # suicide_attempt_hx_past_year = fct_recode(suicide_attempt_hx_past_year,
+    #                                           No = "0",
+    #                                           Yes = "1"
+    #                                           ) |>
+    #   fct_relevel("No", "Yes")
+  ) |>
+  
+  droplevels()  # Drop unused factor levels
+```
+
+```{r Carry Baseline Variables Forward to Subsequent Observations while Maintaining Factor Labels}
+# List of baseline variables to carry forward to subsequent observations via LOCF
 baseline_vars <- c(
-  "date_of_birth", "date_of_injury", "sex", "age", "cause_of_injury",
-  "marital_status_at_injury", "education_level_at_injury",
-  "employment_at_injury", "rehab_payor_primary", "suicide_attempt_hx_lifetime"
+  "date_of_birth", "date_of_injury",
+  "sex", "age", "cause_of_injury", 
+  "marital_status_at_injury", 
+  "education_level_at_injury",
+  "employment_at_injury", "rehab_payor_primary",
+  "rehab_payor_primary_type",
+  "problematic_substance_use_at_injury",
+  "suicide_attempt_hx_lifetime_at_injury",
+  "suicide_attempt_hx_past_year_at_injury"
 )
 
-# Store original levels and labels before applying fill
+# Store original factor levels and labels before applying the LOCF fill to baseline variables
 original_factor_info <- list()
 for (var in baseline_vars) {
   if (is.factor(merged_data[[var]])) {
@@ -337,17 +503,19 @@ for (var in baseline_vars) {
   }
 }
 
-# Convert factors to character before fill
-merged_data <- merged_data %>%
-  mutate(across(all_of(baseline_vars), ~ if (is.factor(.)) as.character(.) else .))
-
-# Applying fill to merged data
-merged_data <- merged_data %>%
-  group_by(id) %>%
-  fill(!!!syms(baseline_vars), .direction = "down") %>%
+# Convert factors to characters before applying the LOCF fill to baseline variables
+merged_data <- merged_data |>
+  mutate(
+    across(all_of(baseline_vars), ~ if (is.factor(.)) { as.character(.) } else { . }) 
+  )
+  
+# Perform the LOCF fill of baseline variable data to all subsequent observations
+merged_data <- merged_data |>
+  group_by(id) |>
+  fill(!!!syms(baseline_vars), .direction = "down") |>
   ungroup()
 
-# Convert characters back to factors with original levels, then set labels using set_labels
+# Convert characters back to factors with original factor levels, then set the factor labels using 'set_labels'
 for (var in names(original_factor_info)) {
   if (!is.null(original_factor_info[[var]])) {
     levels_info <- original_factor_info[[var]]$levels
@@ -362,10 +530,109 @@ for (var in names(original_factor_info)) {
 }
 ```
 
+The following code chunk computes two new variables, which are added to the merged data frame: `time_to_expiration` and `time_to_censorship`. The calculations for these variables are based on the dates of injury, follow-up, and death for each observation. Consideration is given to whether or not each observation is the last observation for a given `id`; if it is, then the `time_to_expiration` calculation is prioritized (assuming a valid date is entered for `date_of_death`); if additional observations exist for the current participant, then the `time_to_censorship` calculation is prioritized (assuming a valid date is entered for `date_of_followup`). The `dplyr` and `lubridate` packages facilitate data manipulation and date calculations, respectively. The result is a modified data frame that includes the two new variables.
 
-```{r Selecting and Arranging Final Data Columns}
-# Select and arrange final data columns
-merged_data <- merged_data %>%
+```{r Calculate Time to Censorship and Time to Expiration, include=FALSE}
+# merged_data <- merged_data |>
+#   arrange(id, date_of_injury, date_of_followup, date_of_death) |>
+#   group_by(id) |>
+#   mutate(
+#     has_subsequent_observation = !is.na(lead(date_of_injury)),  # Add a column to check for subsequent observations
+#     time_to_expiration = case_when(
+#       !is.na(date_of_death) & (is.na(date_of_followup) | has_subsequent_observation) ~ as.integer(difftime(date_of_death, date_of_injury, units = "days")),
+#       TRUE ~ NA_integer_
+#     ),
+#     time_to_censorship = case_when(
+#       !is.na(date_of_followup) & !has_subsequent_observation ~ as.integer(difftime(date_of_followup, date_of_injury, units = "days")),
+#       TRUE ~ NA_integer_
+#     )
+#   ) |>
+#   ungroup() |>
+#   select(-has_subsequent_observation)
+```
+
+### Create and Impute the Year 1 Problematic Substance Use and Past-Year Suicide Attempt History Variables
+
+The following function is designed to process the relevant Year 1 variables from a longitudinal dataset by executing the following:
+
+1. **Input:** It takes a dataset (`data`) as its input. This dataset may contain a number of different variables, including those collected during other (i.e., non-Year 1) follow-up interviews.
+2. **Filtering Year 1 Data:** The function first filters this dataset to only include data from the Year 1 follow-up interview.
+3. **Selecting and Renaming Variables:** The function then selects specific variables that are relevant to Year 1 and renames them. This renaming helps to identify these variables in later stages of the process.
+4. **Joining Data:** After extracting and renaming the desired Year 1 variables, the function rejoins this subset of data back to the original dataset. This step is crucial for maintaining a complete dataset with Year 1 variables that are clearly defined.
+5. **Imputing Missing Values:** The function identifies the Year 1 variables that require imputation and then imputes these missing values via the "down-up" procedure within each group of the same 'id'. In other words, it fills missing values with the nearest non-missing value from the observation either below (down) or above (up) in the same 'id' group.
+6. **Output:** The final output of this function is the original dataset with the clearly marked Year 1 data and corresponding imputed missing values.
+
+```{r Define a Function to Extract the Year 1 Variables of Interest from the Follow-Up Data and Impute the Values Forward and Backward, include=FALSE}
+#' Extract and Impute Year 1 Data
+#'
+#' This function processes a dataset to extract Year 1 data, rename variables, 
+#' join the data back to the original dataset, and then impute missing values.
+#'
+#' @param data A data frame containing the dataset to be processed.
+#' 
+#' @return A data frame with Year 1 data extracted, renamed, and missing values imputed.
+#'
+#' @details 
+#' The function performs several steps:
+#' 1. Filters the dataset for data collection period 1.
+#' 2. Selects specific variables collected at Year 1.
+#' 3. Renames these variables to reflect their Year 1 timing.
+#' 4. Joins the extracted Year 1 data back to the original dataset.
+#' 5. Imputes missing values in Year 1 variables.
+#' 
+#' @examples
+#' # Assuming `my_dataset` is your dataset
+#' result <- extract_and_impute_year_1_data(my_dataset)
+#'
+#' @export
+# extract_and_impute_year_1_data <- function(data) {
+#   # Extract and rename the Year 1 data for the new variables
+#   year_1_data <- data |>
+#     filter(data_collection_period == 1) |>
+#     select(id,
+#            drs_total_at_followup, 
+#            fim_total_at_followup,
+#            gose_total_at_followup,
+#            problematic_substance_use_at_followup,
+#            suicide_attempt_hx_past_year_at_followup,
+#            cardinal_symptoms_at_year_1,
+#            positive_symptoms_at_year_1,
+#            depression_level_at_year_1) |>
+#     rename(drs_total_at_year_1 = drs_total_at_followup,
+#            fim_total_at_year_1 = fim_total_at_followup,
+#            gose_total_at_year_1 = gose_total_at_followup,
+#            problematic_substance_use_at_year_1 = problematic_substance_use_at_followup,
+#            suicide_attempt_hx_past_year_at_year_1 = suicide_attempt_hx_past_year_at_followup)
+# 
+#   # Rejoin the Year 1 data with the original dataset
+#   data_with_year_1_vars <- data |>
+#     left_join(year_1_data, by = "id")
+# 
+#   # Define the variables to be imputed/filled
+#   year_1_vars_to_impute <- c("drs_total_at_year_1",
+#                              "fim_total_at_year_1",
+#                              "gose_total_at_year_1",
+#                              "problematic_substance_use_at_year_1",
+#                              "suicide_attempt_hx_past_year_at_year_1",
+#                              "cardinal_symptoms_at_year_1",
+#                              "positive_symptoms_at_year_1",
+#                              "depression_level_at_year_1")
+#   # Impute the values for each participant
+#   imputed_data <- data_with_year_1_vars |>
+#     group_by(id) |>
+#     fill(!!!syms(year_1_vars_to_impute), .direction = "downup") |>
+#     ungroup()
+# 
+#   return(imputed_data)
+# }
+# 
+# # Extract and impute the Year 1 problematic substance use and past-year suicide attempt data for the analytic sample
+# merged_data <- extract_and_impute_year_1_data(merged_data)
+```
+
+```{r Select and Arrange the Final Data Columns in the Merged Data Frame}
+# Select and reorder merged data columns
+merged_data <- merged_data |>
   select(
     id, data_collection_period,
     status_at_followup,
@@ -376,741 +643,782 @@ merged_data <- merged_data %>%
     education_level_at_injury,
     employment_at_injury,
     rehab_payor_primary,
-    problematic_substance_use,
-    suicide_attempt_hx_lifetime,
-    suicide_attempt_hx_past_year,
+    rehab_payor_primary_type,
+    problematic_substance_use_at_injury,
+    problematic_substance_use_at_followup,
+    drs_total_at_followup,
+    fim_total_at_followup,
+    gose_total_at_followup,
+    drs_total_at_year_1,
+    fim_total_at_year_1,
+    gose_total_at_year_1,
+    func_score_at_year_1,
+    suicide_attempt_hx_lifetime_at_injury,
+    suicide_attempt_hx_past_year_at_injury,
+    suicide_attempt_hx_past_year_at_followup,
     phq1, phq2, phq3, phq4, phq5, phq6, phq7, phq8, phq9
-    ) %>%
+    ) |>
   arrange(id, data_collection_period)
 ```
 
-Time from Study Entry to Each Observation: The time-to-event variable records the time elapsed from the study entry to each specific event or censoring time. This approach allows you to model the hazard rate as it changes over time and assess how covariates influence the risk of an event occurring at each observation point. It's well-suited for analyizing longitudinal or repeated measurements within individuals.
+# Define Logging Functions
 
-```{r Filtering Data for Study Period}
-# Define the study period start and end dates
-observation_period_start_date <- as.Date("2006-10-01")
-observation_period_end_date <- as.Date("2012-10-01")
-study_end_date <- as.Date("2022-10-01")
+The following function is designed to record the size of a study sample after applying a specific study eligibility criterion. Essentially, this function tracks the number of participants who remain in the sample after each stage of filtering. First, it ensures that the specified log directory exists, creating it if necessary. It then calculates the number of unique participant IDs that remain in the dataset as well as the total number of observations or rows that remain in the dataset after applying the study eligibility criterion. These values are then stored in a log file named 'sample_sizes.log' within the specified directory.
 
-# Function to verify whether a specified date falls within the study period
+```{r Define a Function to Log the Sample Sizes After Applying Each Study Eligibility Criterion}
+#' Log Sample Size After Applying Study Eligibility Criteria
+#'
+#' This function logs the updated sample size after applying a specific study eligibility criterion.
+#'
+#' @param data A data frame representing the study data after applying the criterion.
+#' @param criterion_number An integer representing the sequence number of the applied criterion.
+#' @param base_directory A string indicating the directory where the log file will be stored. 
+#'        Default is "logs".
+#'
+#' @details
+#' The function performs the following steps:
+#' 1. Ensures the existence of the specified logging directory.
+#' 2. Creates or accesses a log file named 'sample_sizes.log' within this directory.
+#' 3. Calculates and logs the number of unique participant IDs and the total number 
+#'    of observations in the data that remain after applying the study eligibility criterion.
+#'
+#' @examples
+#' # Log sample size for criterion 1 in default directory
+#' log_sample_size(my_data, 1)
+#'
+#' # Log sample size for criterion 2 in a custom directory
+#' log_sample_size(my_data, 2, "custom_logs")
+#'
+#' @export
+log_sample_size <- function(data, criterion_number, base_directory = "logs") {
+  # Ensure the 'logs' directory exists
+  dir.create(base_directory, showWarnings = FALSE)
+
+  # Create the log file name
+  log_file <- file.path(base_directory, "sample_sizes.log")
+
+  # Calculate the number of unique IDs and total observations
+  unique_ids <- length(unique(data$id))
+  total_observations <- nrow(data)
+
+  # Construct the log message
+  message <- sprintf("Criterion %d: Unique IDs = %d, Total Observations = %d\n", 
+                     criterion_number, unique_ids, total_observations)
+
+  # Append the message to the log file
+  cat(message, file = log_file, append = TRUE)
+}
+```
+
+The following function is designed to record the participant IDs of participants who were removed from the study sample after applying a specific study eligibility criterion. First, the function ensures that the specified log directory exists, creating it if necessary. It then determines the participant IDs that were present in the original dataset but absent in the filtered dataset, indicating their removal from the sample due to failure to fulfill the study eligibility criterion. These removed participant IDs are then stored in a log file named 'criterion_[number]_removed_ids.log' within the specified directory, where "[number]" is adjusted to match the specific criterion number.
+
+```{r Define a Function to Log the Number of Participants Removed after Applying Each Study Eligibility Criterion}
+#' Log Removed Participant IDs After Applying Study Eligibility Criteria
+#'
+#' This function logs the IDs of participants who were removed during the application of a specific study eligibility criterion.
+#'
+#' @param original_data The original dataset before applying the criterion.
+#' @param filtered_data The dataset after applying the criterion.
+#' @param criterion_number An integer indicating the sequence number of the applied criterion.
+#' @param base_directory A string specifying the directory for the log files. 
+#'        Default is "logs".
+#'
+#' @details
+#' The function identifies which participant IDs were removed by the criterion and 
+#' logs them in a file named "criterion_[number]_removed_ids.log".
+#'
+#' @examples
+#' # Log removed IDs for criterion 1
+#' log_removed_ids(my_original_data, my_filtered_data, 1)
+#'
+#' # Log removed IDs for criterion 2 in a custom directory
+#' log_removed_ids(my_original_data, my_filtered_data, 2, "custom_logs")
+#'
+#' @export
+log_removed_ids <- function(original_data, filtered_data, criterion_number, base_directory = "logs") {
+  # Ensure the 'logs' directory exists
+  dir.create(base_directory, showWarnings = FALSE)
+
+  # Find IDs removed by the criterion
+  removed_ids <- setdiff(unique(original_data$id), unique(filtered_data$id))
+
+  # Convert removed IDs to character vector
+  removed_ids_char <- as.character(removed_ids)
+
+  # Create the log file name
+  log_file <- file.path(base_directory, sprintf("criterion_%d_removed_ids.log", criterion_number))
+
+  # Write the removed IDs to the log file
+  writeLines(removed_ids_char, log_file)
+}
+```
+
+### Helper Functions
+
+```{r Define a Helper Function to Verify Whether a Specified Date Falls within the Study Period}
+# Define a function to verify whether a specified date falls within the study period
 is_within_study_period <- function(date) {
   !is.na(date) & date >= observation_period_start_date & date <= study_end_date
 }
-
-# Filter and process the data
-analytic_data <- merged_data %>%
-  filter(date_of_injury >= observation_period_start_date & date_of_injury <= observation_period_end_date) %>%
-  group_by(id) %>%
-  mutate(
-    valid_followup = is_within_study_period(date_of_followup) | is_within_study_period(date_of_death),
-    special_case = status_at_followup %in% c(2, 3, 4, 5, 7),
-    # If it is a valid follow-up, include the observation
-    # If it is a special case, include the observation if the subsequent observation is a valid follow-up
-    include_observation = if_else(data_collection_period == 0, TRUE,
-                                  valid_followup | (special_case & lead(valid_followup, default = FALSE)))
-  ) %>%
-  filter(include_observation) %>%
-  # Calculating event_status and time_to_event
-  mutate(
-    event_status = if_else(!is.na(date_of_death) & date_of_death <= study_end_date, 1, 0),
-    last_valid_date = pmax(date_of_followup, date_of_death, na.rm = TRUE),
-    time_to_event = case_when(
-      data_collection_period == 0 ~ 0, # Set to 0 for baseline observations
-      TRUE ~ as.numeric(last_valid_date - date_of_injury, units = "days") # Calculate time for other cases
-      )
-    ) %>%
-  ungroup() %>%
-  select(id, data_collection_period, status_at_followup, event_status, time_to_event, everything()) %>%
-  select(-valid_followup, -special_case, -include_observation) %>%
-  arrange(id, data_collection_period)
-
-# # View the first few rows of the analytic_data dataframe
-# head(analytic_data)
 ```
 
-```{r display factor text labels instead of numeric levels include=FALSE}
-# DYSFUNCTIONAL/IN PROGRESS; ISSUES WITH CAUSE OF INJURY VARIABLE
-# Applying fct_drop to individual factor variables
-analytic_data <- analytic_data %>%
-  mutate(across(where(is.factor), ~ fct_drop(.x)))
+The `apply_labels_to_renamed_vars` function is used to assign stored variable labels to renamed variables in a dataset. In this particular case, it enables us to rename the variables according to tidyverse style guidelines while retaining all original meaningful descriptors The function first unlists the baseline and follow-up labels to flatten them for easier manipulation and then iterates through each mapping rule in `baseline_mappings` and `followup_mappings` to locate the corresponding old name for each new variable name and then applying the appropriate label from `baseline_labels` and `followup_labels` to the new variable names in `merged_data`.
 
-# Now try printing or using the factor variable
-str(analytic_data$cause_of_injury)
+```{r Define a Function to Apply Original Variable Labels to Renamed Variables}
+#' Apply original variable labels to renamed variables
+#'
+#' This function applies stored variable labels to renamed variables.
+#'
+#' @param merged_data A data frame.
+#' @param baseline_labels A vector of variable labels for baseline variables.
+#' @param followup_labels A vector of variable labels for follow-up variables.
+#' @param baseline_mappings A list of mapping rules for baseline variables.
+#' @param followup_mappings A list of mapping rules for follow-up variables.
+#' @return A data frame with labels applied to renamed variables.
+#' @export
+#' @examples
+#' apply_labels_to_renamed_vars(mtcars, c("Baseline MPG", "Baseline Cylinders"), c("Follow-up MPG", "Follow-up Cylinders"), list(cyl = list(original_name = "cylinders")), list(mpg = list(original_name = "mpg")))
+apply_labels_to_renamed_vars <- function(merged_data, baseline_labels, followup_labels, baseline_mappings, followup_mappings) {
+  # Unlist the labels
+  baseline_labels_unlisted <- unlist(baseline_labels)
+  followup_labels_unlisted <- unlist(followup_labels)
 
-# Adjust labels for 'cause_of_injury'
-labels_cause_of_injury <- get_labels(analytic_data$cause_of_injury)
-labels_cause_of_injury <- labels_cause_of_injury[!names(labels_cause_of_injury) %in% 15]
+  # Apply TBIMS Form 1 (baseline) labels
+  for (new_name in names(baseline_mappings)) {
+    original_name <- baseline_mappings[[new_name]]$original_name
+    if (!is.null(baseline_labels_unlisted[original_name])) {
+      var_label(merged_data[[new_name]]) <- baseline_labels_unlisted[original_name]
+    }
+  }
 
-analytic_data$cause_of_injury <- sjlabelled::set_labels(analytic_data$cause_of_injury, labels = labels_cause_of_injury)
+  # Apply TBIMS Form 2 (follow-up) labels
+  for (new_name in names(followup_mappings)) {
+    original_name <- followup_mappings[[new_name]]$original_name
+    if (!is.null(followup_labels_unlisted[original_name])) {
+      var_label(merged_data[[new_name]]) <- followup_labels_unlisted[original_name]
+    }
+  }
 
-
-# Loop through each factor column and set levels to labels
-analytic_data <- analytic_data %>%
-  mutate(across(where(is.factor), ~ {
-    factor(.x, labels = names(attr(.x, "labels")))
-  }))
-
-# Check the changes for a specific variable
-str(analytic_data$cause_of_injury)
-
-# Drop unused levels in all factor variables
-analytic_data <- analytic_data %>%
-  mutate(across(where(is.factor), fct_drop))
-
-# Now, try setting the levels to text labels again
-analytic_data <- analytic_data %>%
-  mutate(across(where(is.factor), ~ factor(.x, labels = attr(.x, "labels")[levels(.x)])))
-
-
-# 
-# # Automatically set factor levels to their corresponding text labels
-# analytic_data2 <- analytic_data %>%
-#   mutate(across(where(is.factor), ~ factor(.x, labels = attr(.x, "labels")[levels(.x)])))
-
-# Verify the changes for a specific variable
-# str(analytic_data2$sex)
-
-
-```
-
-
-
-```{r sample dataset that shows expected survival variables for long format}
-# # Load necessary libraries
-# library(dplyr)
-# library(lubridate)
-# 
-# # Set seed for reproducibility
-# set.seed(123)
-# 
-# # Generate sample data
-# n <- 1000  # Number of observations
-# id <- rep(1:n, each = sample(1:5, n, replace = TRUE))  # Varying number of observations per id
-# id <- sample(id)  # Shuffle id order
-# time_point <- rep(c(0, 1, 2, 5, 10, 15), length.out = n)
-# event_status <- ifelse(time_point == 15 | runif(n) < 0.2, 1, 0)  # Simulating deaths at year 15 and random censoring
-# date1 <- sample(seq(as.Date('2006-01-01'), as.Date('2012-01-01'), by = 'day'), n, replace = TRUE)
-# follow_up_date <- vector("list", n)
-# 
-# # Create a data frame
-# df <- data.frame(id, time_point, event_status, date1)
-# 
-# # Loop to generate follow_up_date
-# for (i in 1:n) {
-#   if (time_point[i] == 0) {
-#     follow_up_date[i] <- date1[i]
-#   } else {
-#     max_date <- date1[i] + days(365 * time_point[i])  # Maximum date allowed based on time_point
-#     follow_up_date[i] <- sample(seq(date1[i], max_date, by = 'day'), 1)
-#   }
-# }
-# 
-# # Unlist follow_up_date and convert to Date type
-# df$follow_up_date <- as.Date(unlist(follow_up_date))
-# 
-# # Sort the data frame by id and follow_up_date
-# df <- df %>% arrange(id, follow_up_date)
-# 
-# # Calculate time-to-event variable as the number of days
-# df$days_to_event <- as.numeric(difftime(df$follow_up_date, df$date1, units = "days"))
-# 
-# # View the first few rows of the dataset
-# head(df)
-```
-
-
-```{r verify legitimacy of applied study period criteria, include=FALSE}
-# Descriptive stats to ensure legitimacy of eligibility criteria
-# Display the minimum date of injury (should be close to 2006-10-01)
-min_date <- min(analytic_data$date_of_injury)
-min_date_formatted <- format(as.Date(min_date, origin = "1970-01-01"), "%Y-%m-%d")
-cat("Minimum date:", min_date_formatted, "\n")
-
-# Display the maximum date of injury (should be close to 2012-10-01)
-max_date <- max(analytic_data$date_of_injury)
-max_date_formatted <- format(as.Date(max_date, origin = "1970-01-01"), "%Y-%m-%d")
-cat("Maximum date:", max_date_formatted, "\n")
-
-# Display the median date of injury
-# First, calculate the expected midpoint date for comparison
-midpoint_date <- observation_period_start_date + difftime(observation_period_end_date, observation_period_start_date, units = "days") / 2
-
-# Format the dates for display in year-month-day format
-observation_period_start_date_formatted <- format(observation_period_start_date, "%Y-%m-%d")
-observation_period_end_date_formatted <- format(observation_period_end_date, "%Y-%m-%d")
-midpoint_date_formatted <- format(midpoint_date, "%Y-%m-%d")
-
-# Check if the midpoint date is within the range of the specified dates
-if (midpoint_date >= observation_period_start_date && midpoint_date <= observation_period_end_date) {
-  cat("Midpoint date between", observation_period_start_date_formatted, "and", observation_period_end_date_formatted, "is:", midpoint_date_formatted, "\n")
-} else {
-  cat("The midpoint date is outside the range of the specified dates.\n")
+  return(merged_data)
 }
-
-# Next, display the median date of injury within the analytic sample
-median_date <- median(analytic_data$date_of_injury)
-median_date_formatted <- format(as.Date(median_date, origin = "1970-01-01"), "%Y-%m-%d")
-cat("Median date:", median_date_formatted, "\n")
-
-
-
-
-# # Filter observations based on date criteria to create analytic sample
-# analytic_data <- merged_data %>%
-#   filter(id %in% eligible_ids) %>%
-#   group_by(id) %>%
-#   arrange(data_collection_period) %>%
-#   mutate(
-#     valid_followup = is_within_study_period(date_of_death) | is_within_study_period(date_of_followup),
-#     special_case = status_at_followup %in% c(2, 3, 4, 5, 7),
-#     include_observation = if_else(data_collection_period == 0, TRUE, valid_followup | (special_case & lead(valid_followup, default = FALSE)))
-#   ) %>%
-#   filter(include_observation) %>%
-#   ungroup() %>%
-#   arrange(id, data_collection_period)
-
-# # Step 1: Exclude IDs with missing dates of injury
-# merged_data <- merged_data %>%
-#   filter(!is.na(date_of_injury))
-
-# # Step 2: Identify IDs with eligible dates of injury
-# eligible_ids <- merged_data %>%
-#   filter(date_of_injury >= as.Date("2006-10-01") & date_of_injury <= as.Date("2012-10-01")) %>%
-#   pull(id) %>%
-#   unique()
-
-# # Step 3: Filter observations based on date criteria
-# analytic_data <- merged_data %>%
-#   filter(id %in% eligible_ids) %>%
-#   group_by(id) %>%
-#   arrange(id, data_collection_period) %>%
-#   filter(
-#     (date_of_death <= as.Date("2022-10-01") & date_of_death >= as.Date("2006-10-01")) |
-#     (date_of_followup <= as.Date("2022-10-01") & date_of_followup >= as.Date("2006-10-01")) |
-#     (cummax(!is.na(date_of_death) | !is.na(date_of_followup)) & data_collection_period > 0)
-#   ) %>%
-#   ungroup()
-
-# # Step 4: Prepare for Cox proportional hazards model
-# analytic_data <- analytic_data %>%
-#   mutate(
-#     event_status = if_else(!is.na(date_of_death) & date_of_death <= study_end_date, 1, 0),
-#     time_to_event = as.numeric(
-#       case_when(
-#         event_status == 1 ~ date_of_death - date_of_injury,
-#         TRUE ~ min(study_end_date, na.omit(date_of_followup)) - date_of_injury
-#       ),
-#       units = "days"
-#     )
-#   )
-
-# # Rearranging columns in the analytic_data dataframe
-# analytic_data <- analytic_data %>%
-#   select(
-#     id, data_collection_period, status_at_followup, event_status, time_to_event,
-#     everything()
-#   )
-
-# # Optional: Logging sample sizes
-# log_sample_sizes <- function(original_data, filtered_data, log_file) {
-#   original_count <- n_distinct(original_data$id)
-#   filtered_count <- n_distinct(filtered_data$id)
-#   retention_percentage <- (filtered_count / original_count) * 100
-# 
-#   cat(
-#     "Original Sample Size:", original_count, "\n",
-#     "Filtered Sample Size:", filtered_count, "\n",
-#     "Percentage Retained:", retention_percentage, "%\n",
-#     file = log_file,
-#     append = TRUE
-#   )
-# }
-# 
-# log_sample_sizes(merged_data, analytic_data, "logs/sample_sizes.log")
-# 
-# # Checking the results
-# head(analytic_data)
 ```
 
+# Apply Study Eligibility Criteria and Log the Results
 
-```{r include=FALSE}
-# Calculate sample size of the full TBIMS NDB dataset as of Q2 of 2023
-N_overall_sample <- length(unique(merged_data$id)) # Total unique participants
-N_overall_sample_obs <- nrow(merged_data) # Total observations
+The three following functions are part of a series of steps that ensure the analytic sample is comprised only of participants meeting the study eligibility criteria.
 
-# Define study period
-start_date <- as.Date("2006-10-01")
-end_date <- as.Date("2012-10-01")
-censorship_date <- as.Date("2022-10-01")
+## Study Eligibility Criterion 1 (Inclusion): Injured between 2006-10-01 and 2012-10-01
+The `apply_criterion_1` function is designed to filter and process data based on the first study eligibility criterion, which entails that the retained data were collected within the defined study observation period. The function also accounts for special cases in which the full follow-up interview was not administered.
 
-# Apply study eligibility criteria
-analytic_data <- merged_data %>%
-  filter(date_of_injury >= start_date & date_of_injury <= end_date,
-         date_of_death <= censorship_date | is.na(date_of_death),
-         date_of_followup <= censorship_date | is.na(date_of_followup)) 
+**Filtering by Date**
+First, the function retains data from participants whose dates of injury fell within the start and end dates of the observation period. 
+**Grouping and Flagging**
+The function then groups the data by participant ID and creates flags for follow-up validity and special cases (e.g., "Lost," "Refused," etc.). The `valid_followup` flag is set to `TRUE` if either `date_of_followup` or `date_of_death` contain a date value that falls within the study period and `FALSE` otherwise. The `special_case` flag identifies observations with special circumstances based on the `status_at_followup` field; observations are flagged as special cases if this variable is one of the following: "Lost," "Refused," "Incarcerated," "Withdrew," or "No Funding." These interview statuses indicate situations where standard follow-up might not have been possible or reliable, requiring separate handling in the analysis.
 
-# analytic_sample <- merged_data %>%
-#   filter(date_of_injury >= study_start_date & date_of_injury <= study_end_date) %>%
-#   filter((!is.na(date_of_followup) & date_of_followup <= followup_end_date) | 
-#          (!is.na(date_of_death) & date_of_death <= followup_end_date))
+**Inclusion Criteria**
+The function uses a combination of these flags and the `data_collection_period` to determine whether an observation should be included in the returned data frame. The inclusion is based on several factors:
 
-# Calculate sample size of the analytic sample
-n_analytic_sample <- n_distinct(analytic_sample$id) # Analytic sample participants
-n_analytic_sample_obs <- nrow(analytic_sample) # Analytic sample observations
-percentage_retained <- (n_analytic_sample / N_overall_sample) * 100
-```
+1. Data Collection Period: If the `data_collection_period` is 0 (indicating baseline data), the observation is retained.
+2. Follow-Up Validity and Special Cases:
+  - For follow-up data, an observation's inclusion in the returned data frame depends on the values of:
+  - `valid_followup`: If this flag is `TRUE`, it means the observation contains a valid date in either the date of follow-up date or date of expiration columns, thus making the observation relevant to the study; or
+  - `special_case`: This flags observations with special interview statuses (like "Lost," "Refused," etc.); if this flag is `TRUE`, then the respective observation is retained only if its subsequent follow-up observation (checked using `lead(valid_followup, default = FALSE)`) is valid.
+- These approaches ensure that the returned dataset retains baseline observations and follow-up observations that are either valid within the study period or are special cases with valid subsequent follow-up data.
 
-```{r logging sample sizes, include=FALSE}
-# Log sample sizes
-log_sample_sizes <- function(original_data, filtered_data, log_file_path) {
-  original_size <- n_distinct(original_data$id)
-  filtered_size <- n_distinct(filtered_data$id)
-  retention_rate <- (filtered_size / original_size) * 100
+**Event Status and Time to Event**
+This section of the function calculates two important pieces of information for the survival analysis:
+1. **Event Status (`event_status`):**
+  - This is a binary indicator (0 or 1) indicating whether a significant event (i.e., mortality) occurred prior to the study end date.
+  - This variable is calculated using `if_else(!is.na(date_of_death) & date_of_death <= study_end_date, 1, 0)`, where `event_status` is set to 1 (indicating that the event occurred) if `date_of_death` is not missing (`!is.na(date_of_death)`) and occurred on or before the study end date; otherwise, it is set to 0.
+2. **Time to Event (`time_to_event`):**
+  - This represents the time (in days) from the date of injury to the event or the last valid follow-up date.
+  - This variable is calculated differently for baseline and follow-up observations:
+    - For baseline (`data_collection_period == 0`), the time to event is set to 0.
+    - For follow-up observations, `time_to_event` is the number of days between the date of injury and the later of either the follow-up date or the date of death, computed using `case_when(...)`. The `pmax(date_of_followup, date_of_death, na.rm = TRUE)` function finds the latest of these two dates within a given observation, and `as.numeric(last_valid_date - date_of_injury, units = "days")` calculates the time difference in days.
+3. **`time_to_censorship` and `time_to_expiration`:**
+  - These lines compute two new variables, `time_to_expiration` and `time_to_censorship`. The calculations for these variables are based on the dates of injury, follow-up, and death for each observation. Consideration is given to whether or not each observation is the last observation for a given `id`; if it is, then the `time_to_expiration` calculation is prioritized (assuming a valid date is entered for `date_of_death`); if additional observations exist for the current participant, then the `time_to_censorship` calculation is prioritized (assuming a valid date is entered for `date_of_followup`). The `dplyr` and `lubridate` packages facilitate data manipulation and date calculations, respectively. The result is a modified data frame that includes the two new variables.
   
-  log_message <- paste("Original sample size:", original_size,
-                       "\nFiltered sample size:", filtered_size,
-                       "\nRetention rate:", sprintf("%.2f%%", retention_rate),
-                       "\n")
+Based on the data collection period and the flags set previously, the function determines which observations to include in the returned data frame. Event status is then determined based on the availability of valid date data in the `date_of_death` column (in which case, `event_status` = 1); if the column contains NA, then `event_status` is set to 0. Each participant's time to event (i.e., time to censorship or time to death) is then calculated
+
+```{r Define a Function to Apply Study Eligibility Criterion 1 (Inclusion): Injured between October 1, 2006 and October 1, 2012}
+#' Apply Study Eligibility Criterion 1
+#'
+#' This function applies a specified study eligibility criterion (Criterion 1) to filter 
+#' and transform clinical research data. It includes observations within a specified 
+#' period, accounts for special cases, and computes each participant's event status and
+#' time to event.
+#'
+#' @param data A data frame containing the clinical research data.
+#' @param observation_period_start_date The start date of the observation period (inclusive).
+#' @param observation_period_end_date The end date of the observation period (inclusive).
+#' @return A data frame filtered and transformed according to Criterion 1, which includes variables for event status and time to event.
+#' @examples
+#' # To use the function, provide a data frame and relevant dates:
+#' apply_criterion_1(data, "2020-01-01", "2021-01-01")
+#' @export
+apply_criterion_1 <- function(data, observation_period_start_date, observation_period_end_date) {
+  original_data <- data  # Store the original data for logging removed IDs
   
-  write(log_message, file = log_file_path, append = TRUE)
-}
-
-# Logging sample sizes
-log_sample_sizes_path <- here("logs/sample_sizes.log")
-log_sample_sizes(merged_data, analytic_data, log_sample_sizes_path)
-```
-
-```{r log sample size calculations}
-# ----------------------- Log Sample Size Calculations -----------------------
-# Define the directory for logs (create if necessary)
-log_directory <- here("logs") # Specify the relative path to the log directory
-if (!dir.exists(log_directory)) {
-  dir.create(log_directory)
-}
-
-# Define the file path for the log file
-#sample_size_log_path <- here("logs/sample_size_log.txt")
-sample_size_log_path <- file.path(log_directory, "sample_size_log.txt")
-
-# Open the log file for writing
-sink(sample_size_log_path, append = TRUE)
-
-# Log the calculations for the full TBIMS NDB sample
-cat(sprintf("**Overall Sample Size = %d**\n", N_overall_sample))
-cat(sprintf("A total of %d observations from %d unique participants were recorded in the TBIMS NDB as of Q2 2023.\n\n", N_overall_sample_obs, N_overall_sample))
-# cat("**Overall Sample Size =", N_overall_sample, "**\n")
-# cat("A total of", N_overall_sample_obs, "observations from", N_overall_sample, "unique participants were recorded in the TBIMS NDB as of Q2 2023.\n")
-# cat("\n")
-
-# Log the calculations for the analytic sample
-cat(sprintf("**Analytic Sample Size = %d**\n", N_analytic_sample))
-cat(sprintf("A total of %d observations from %d unique participants (%.2f%% of the overall sample) contributed to the analytic dataset.\n\n", n_analytic_sample_obs, n_analytic_sample, percentage_retained))
-# cat("**Analytic Sample Size =", N_analytic_sample, "**\n")
-# cat("A total of", N_analytic_sample_obs, "observations from", N_analytic_sample, "unique participants contributed to the analytic dataset.\n")
-# cat("\n")
-
-# Close the log file
-sink(NULL)
-```
-
-The following R function, `calculate_depression_level`, operationalizes depression levels at year 1 using responses to the Patient Health Questionnaire (PHQ-9) items. Initially, the function filters the dataset to focus on observations corresponding to the first follow-up interview (`data_collection_period = 1`). For each participant, the function calculates the number of PHQ-9 items scored at 1 or higher, considering these as positive symptoms of depression. The function then categorizes participants into three levels of depression severity: "No depression", "Minor depression", and "Major depression". This categorization considers both the count of positive symptoms and the presence of cardinal symptoms (anhedonia and depressed mood, represented by `phq1` and `phq2`). The resulting variable, `depression_level`, is a factor variable with labels corresponding to each depression category. This approach provides a nuanced view of depressive symptoms' presence and severity at a critical time point in the study.
-
-The line `sum(phq1 >= 1, phq2 >= 1, phq3 >= 1, phq4 >= 1, phq5 >= 1, phq6 >= 1, phq7 >= 1, phq8 >= 1, phq9 >= 1) <= 1 | (phq1 < 1 & phq2 < 1) ~ "0",` is performing several operations:
-1. **Sum of Positive Symptoms**: `sum(phq1 >= 1, phq2 >= 1, ..., phq9 >= 1)` counts the number of PHQ-9 items that have a score of 1 or higher. Each comparison (`phq# >= 1`) returns `TRUE` (counted as 1) if the item score is 1 or higher, indicating a positive symptom.
-2. **Criteria for 'No Depression'**: The sum is then compared to `<= 1`. If the sum is 1 or less, it means the participant has 0 or 1 positive symptoms.
-3. **Cardinal Symptoms Check**: The code `(phq1 < 1 & phq2 < 1)` checks if both cardinal symptoms are absent (both scores are less than 1).
-4. **Combining Criteria with OR (`|`)**: If either the participant has 1 **or** fewer positive symptoms, or both cardinal symptoms are absent, they are categorized as "No depression".
-
-```{r Defining a Function to Calculate Depression Level at Year 1}
-# Define function to calculate depression level
-calculate_depression_level <- function(data) {
-  # Filter data for year 1
-  year_1_data <- data %>% filter(data_collection_period == 1)
-
-  year_1_data <- year_1_data %>% 
-    rowwise() %>% 
+  data <- data |>
+    filter(date_of_injury >= observation_period_start_date & date_of_injury <= observation_period_end_date) |>
+    arrange(id, date_of_followup, date_of_death) |>
+    group_by(id) |>
     mutate(
-      positive_symptoms = sum(phq1 >= 1, phq2 >= 1, phq3 >= 1, phq4 >= 1, phq5 >= 1, phq6 >= 1, phq7 >= 1, phq8 >= 1, phq9 >= 1),
-      depression_level = case_when(
-        positive_symptoms <= 1 | (phq1 < 1 & phq2 < 1) ~ "0", # No depression
-        positive_symptoms <= 4 & (phq1 >= 1 | phq2 >= 1) ~ "1", # Minor depression
-        positive_symptoms >= 5 & (phq1 >= 1 | phq2 >= 1) ~ "2", # Major depression
-        TRUE ~ NA_character_ # Handle unexpected cases
-      )
-    ) %>% 
-    ungroup() %>%
-    mutate(depression_level = factor(depression_level, levels = c("0", "1", "2"), labels = c("No depression", "Minor depression", "Major depression")))
+      valid_followup = is_within_study_period(date_of_followup) | is_within_study_period(date_of_death),
+      special_case = status_at_followup %in% c("Lost", "Refused", "Incarcerated", "Withdrew", "No Funding"),
+      include_observation = if_else(data_collection_period == 0, TRUE, valid_followup | (special_case & lead(valid_followup, default = TRUE)))
+    ) |>
+    filter(include_observation) |>
+    mutate(
+      event_status = if_else(!is.na(date_of_death) & date_of_death <= study_end_date, 1, 0),
+      time_to_censorship = if_else(is.na(date_of_death) & is.na(date_of_followup), 0, 
+                                   if_else(!is.na(date_of_followup), as.numeric(date_of_followup - date_of_injury, units = "days"), NA_real_)),
+      time_to_expiration = if_else(is.na(date_of_death) & is.na(date_of_followup), 0, 
+                                   if_else(!is.na(date_of_death), as.numeric(date_of_death - date_of_injury, units = "days"), NA_real_)),
+      time_to_event = if_else(!is.na(date_of_death), time_to_expiration,
+                              if_else(!is.na(time_to_censorship), time_to_censorship, NA_real_))
+    ) |>
+    ungroup() |>
+    select(id, data_collection_period, status_at_followup, event_status,
+           time_to_event, time_to_censorship, time_to_expiration,
+           date_of_followup, date_of_death, everything()) |>
+    select(-valid_followup, -special_case, -include_observation) |>
+    arrange(id, data_collection_period)
+  
+  # Log the sample size after applying Criterion 1
+  log_sample_size(data, 1)
 
-  return(year_1_data)
+  # Log the removed IDs
+  log_removed_ids(original_data, data, 1)
+
+  return(data)
 }
-
-# 
-# calculate_depression_level <- function(data) {
-#   # Filter data for year 1 (data_collection_period = 1)
-#   year_1_data <- data %>% filter(data_collection_period == 1)
-# 
-#   # Apply the criteria to each row (id) and create the depression level variable
-#   year_1_data <- year_1_data %>% 
-#     rowwise() %>% 
-#     mutate(
-#       depression_level = case_when(
-#         sum(phq1 >= 1, phq2 >= 1, phq3 >= 1, phq4 >= 1, phq5 >= 1, phq6 >= 1, phq7 >= 1, phq8 >= 1, phq9 >= 1) <= 1 | (phq1 < 1 & phq2 < 1) ~ "0", # No depression
-#         sum(phq1 >= 1, phq2 >= 1, phq3 >= 1, phq4 >= 1, phq5 >= 1, phq6 >= 1, phq7 >= 1, phq8 >= 1, phq9 >= 1) <= 4 & (phq1 >= 1 | phq2 >= 1) ~ "1", # Minor depression
-#         sum(phq1 >= 1, phq2 >= 1, phq3 >= 1, phq4 >= 1, phq5 >= 1, phq6 >= 1, phq7 >= 1, phq8 >= 1, phq9 >= 1) >= 5 & (phq1 >= 1 | phq2 >= 1) ~ "2", # Major depression
-#         TRUE ~ NA_character_ # Handle unexpected cases
-#       )
-#     ) %>% 
-#     ungroup()
-# 
-#   # Convert depression_level to factor with labels
-#   year_1_data$depression_level <- factor(year_1_data$depression_level, levels = c("0", "1", "2"), labels = c("No depression", "Minor depression", "Major depression"))
-# 
-#   return(year_1_data)
-# }
-
-# Applying the function to the merged dataset
-merged_data <- calculate_depression_level(merged_data)
 ```
 
+## Study Eligibility Criterion 2 (Exclusion): Early Mortality and Negative Survival Times
 
-<!-- ```{r create depression status derived variable, include=FALSE} -->
-<!-- # Function to calculate depression status -->
-<!-- calculate_depression_status <- function(phq_scores) { -->
-<!--   positive_symptoms <- sum(phq_scores >= 1, na.rm = TRUE) -->
-<!--   cardinal_symptoms <- sum(phq_scores[1:2] >= 1, na.rm = TRUE) -->
+The `apply_criterion_2` function is designed to further refine the analytic sample based on the second study eligibility criterion, which excludes participants who exhibited early mortality (i.e., death on the date of injury, as indicated by `time_to_event == 0`) or negative survival times (which is most likely attributable to data entry errors). The function receives the `data` data frame as the input and filters out any observations for which the `time_to_event` variable--which represents the time from the date of injury to the date of either follow-up or expiration--is missing or negative. After filtering, the function logs the number of participants remaining in the sample and the IDs of those who were removed due to this study eligibility criterion. The function returns the modified dataset, now excluding the removed participants.
 
-<!--   if (positive_symptoms <= 1 && cardinal_symptoms == 0) { -->
-<!--     return("No Depression") -->
-<!--   } else if (positive_symptoms >= 2 && positive_symptoms <= 4 && cardinal_symptoms >= 1) { -->
-<!--     return("Minor Depression") -->
-<!--   } else if (positive_symptoms >= 5 && cardinal_symptoms >= 1) { -->
-<!--     return("Major Depression") -->
-<!--   } else { -->
-<!--     return(NA) -->
-<!--   } -->
-<!-- } -->
+```{r Define a Function to Apply Study Eligibility Criterion 2 (Exclusion): Remove Cases with Early Mortality or a Negative Survival Time}
+#' Apply Study Eligibility Criterion 2
+#'
+#' This function applies the second study eligibility criterion, which involves
+#' excluding participants based on early mortality and negative survival times.
+#'
+#' @param data A data frame containing the study data.
+#' @return A data frame after applying Criterion 2, with excluded observations removed.
+#' @details
+#' The function performs the following operations:
+#' 1. Filters out observations with missing or negative 'time_to_event' values, unless the observation
+#'    is not the last one for the current 'id' and 'time_to_event' is NA.
+#' 2. Logs the sample size and IDs of participants removed after applying this criterion.
+#' 3. Returns the modified dataset.
+#' @examples
+#' # Apply Criterion 2 to a dataset
+#' modified_data <- apply_criterion_2(dataset)
+#' @export
+apply_criterion_2 <- function(data) {
+  original_data <- data  # Store the original data for logging the removed IDs
 
-<!-- # Apply the function to the follow-up data -->
-<!-- clean_followup_data <- clean_followup_data %>% -->
-<!--   filter(data_collection_period == 1) %>%  # Filtering for year 1 follow-up data -->
-<!--   rowwise() %>% -->
-<!--   mutate(depression_status = calculate_depression_status(c_across(phq1:phq9))) -->
+  data <- data |>
+    group_by(id) |>
+    mutate(last_observation = row_number() == n()) |>
+    filter(time_to_event > 0 | data_collection_period == 1 & !last_observation) |>
+    ungroup() |>
+    select(-last_observation)
+    # filter(!is.na(time_to_event) & time_to_event > 0)
 
-<!-- ``` -->
+  # Log the sample size after applying Criterion 2
+  log_sample_size(data, 2)
 
-This code will create a new variable `depression_status` in the follow-up data, categorizing each participant's depression level based on their PHQ scores at the year 1 follow-up interval. Please ensure that the `phq*` variables are correctly mapped and cleaned before applying this function. Also, remember to re-merge the baseline and follow-up data frames after applying these changes.
+  # Log the removed IDs
+  log_removed_ids(original_data, data, 2)
 
+  return(data)
+}
+```
 
+## Study Eligibility Criterion 3 (Inclusion): Determinate Date Data for Calculating Survival Times
 
-The sample size calculations should be performed before opening the sink to write to the log file, especially if the calculations themselves are not meant to be logged. This is because once `sink()` is called, all console output, including errors or warnings, will go to the log file, and you might miss them in the console.
+The `apply_criterion_3` function is designed to apply the final study eligibility criterion, which requires that all participants have the necessary date data for the calculation of survival times. This function requires the specification of the data frame (`data`) as well as the parameters `tbims_form1_labels`, `tbims_form2_labels`, `baseline_name_and_na_mappings`, and `followup_name_and_na_mappings`, which contain additional information about variable labels and mappings for baseline and follow-up data. The function starts by grouping data by participant ID and filtering out those without a valid follow-up or expiration date (`last_valid_date`). These dates are essential for calculating survival times. Next, the function applies the original TBIMS Form 1 and Form 2 labels to the renamed variables, using the mappings provided in the additional parameters. As in the previous functions, the sample size log is then updated with the new sample size after applying this criterion, and the IDs of excluded participants are logged. The final output is a dataset with participants who fulfilled all three study eligibility criteria, with appropriately labeled variables.
 
+```{r Define a Function to Apply Study Eligibility Criterion 3 (Inclusion): Availability of Determinate Date Data for Calculating Survival Time}
+#' Apply Study Eligibility Criterion 3
+#'
+#' This function applies the third study eligibility criterion, focusing on the 
+#' inclusion of participants with determinate date data available for calculating survival times.
+#'
+#' @param data A data frame containing the study data.
+#' @param tbims_form1_labels Labels for baseline variables from TBIMS Form 1.
+#' @param tbims_form2_labels Labels for follow-up variables from TBIMS Form 2.
+#' @param baseline_name_and_na_mappings Mappings for renamed baseline variables.
+#' @param followup_name_and_na_mappings Mappings for renamed follow-up variables.
+#' @return A data frame after applying Criterion 3, with only eligible observations included.
+#' @details
+#' The function performs the following operations:
+#' 1. Filters out observations without a valid follow-up or death date for calculating survival time.
+#' 2. Applies original variable labels to renamed variables based on TBIMS Form 1 and 2 labels.
+#' 3. Logs the sample size and IDs of participants removed after applying this criterion.
+#' 4. Returns the modified dataset.
+#' @examples
+#' # Apply Criterion 3 to a dataset
+#' modified_data <- apply_criterion_3(dataset, tbims_form1_labels, tbims_form2_labels, 
+#'                                    baseline_name_and_na_mappings, followup_name_and_na_mappings)
+#' @export
+apply_criterion_3 <- function(data, tbims_form1_labels, tbims_form2_labels, baseline_name_and_na_mappings, followup_name_and_na_mappings) {
+  original_data <- data  # Store the original data for logging removed IDs
 
+  data <- data |>
+    arrange(id, date_of_followup, date_of_death) |>
+    group_by(id) |>
+    mutate(
+      is_last_observation = lead(id, default = last(id)) != id,
+      last_valid_date = pmax(date_of_followup, date_of_death, na.rm = TRUE)
+    ) |>
+    filter(any(!is.na(last_valid_date))) |>
+    ungroup() |>
+    select(-is_last_observation, -last_valid_date)
 
-```{r original cleaning/merging process, include=FALSE}
-# Add data_collection_period to baseline_data
-baseline_data <- baseline_data %>%
-  mutate(data_collection_period = 0)
-
-# Apply the cleaning and conversion function to the datasets
-clean_baseline_data <- clean_and_convert(baseline_data, baseline_mappings_and_na)
-clean_followup_data <- clean_and_convert(followup_data, followup_mappings_and_na)
-
-# Merge the datasets
-combined_data <- merge(clean_baseline_data, clean_followup_data, by = c("id", "data_collection_period", "date_of_death"), all = TRUE)
-
-# Create the problematic_substance_use variable and replace missing values with NA
-combined_data <- combined_data %>%
-  mutate(
-    problematic_substance_use = case_when(
-      data_collection_period == 0 & PROBLEMUse %in% c(77, 99) ~ NA_real_,
-      data_collection_period == 0 ~ PROBLEMUse, # baseline data
-      data_collection_period >= 1 & PROBLEMUseF == 99 ~ NA_real_,
-      data_collection_period >= 1 ~ PROBLEMUseF, # follow-up data
-      TRUE ~ NA_real_                            # default case to handle NAs
-    )
+  # Apply original variable labels to renamed variables
+  data <- apply_labels_to_renamed_vars(
+    data, 
+    tbims_form1_labels, 
+    tbims_form2_labels, 
+    baseline_name_and_na_mappings, 
+    followup_name_and_na_mappings
   )
 
-# If needed, convert the problematic_substance_use variable to factor and set the levels
-combined_data$problematic_substance_use <- factor(
-  combined_data$problematic_substance_use,
-  levels = c(0, 1),
-  labels = c("No", "Yes")
-)
+  # Log the sample size after applying Criterion 3
+  log_sample_size(data, 3)
 
-# Apply further transformations
-# Coalesce the date variables, ensuring that NAs are maintained
-combined_data <- combined_data %>%
-  mutate(
-    date_of_data_collection = coalesce(date_of_entry, date_of_followup)
-    #date_of_death = coalesce(date_of_death.x, date_of_death.y)
-  ) %>%
-  # Retain only the necessary columns
+  # Log the removed IDs
+  log_removed_ids(original_data, data, 3)
+
+  return(data)
+}
+```
+
+## Call the Study Eligibility Criteria Functions
+
+```{r Call the study eligibility criteria functions}
+# Apply Study Eligibility Criterion 1
+analytic_data <- apply_criterion_1(merged_data, observation_period_start_date, observation_period_end_date)
+
+# Apply Study Eligibility Criterion 2
+analytic_data <- apply_criterion_2(analytic_data)
+
+# Apply Study Eligibility Criterion 3
+analytic_data <- apply_criterion_3(analytic_data, tbims_form1_labels, tbims_form2_labels, baseline_name_and_na_mappings, followup_name_and_na_mappings)
+```
+
+### Create a Sample Data Frame of the Analytic Data
+
+```{r Create a sample data frame of the analytic dataset without depression variables, include=FALSE}
+# Set a random seed for reproducibility
+set.seed(42)
+
+# Create a vector of unique participant IDs
+unique_participant_ids <- unique(analytic_data$id)
+
+# Randomly sample 15 participant IDs
+sampled_participant_ids <- sample(unique_participant_ids, 15)
+
+# Create a filtered data frame with all observations for the sampled participants
+sampled_analytic_data <- analytic_data |>
+  filter(id %in% sampled_participant_ids) |>
+  select(-date_of_birth, -age, -status_at_followup) |>
+  arrange(id, data_collection_period)
+
+# Write the sampled data frame to a CSV file
+write.csv(sampled_analytic_data, file = "~/Downloads/sampled_analytic_data.csv", row.names = FALSE)
+```
+
+## Calculate Depression Level at Year 1
+
+Time from Study Entry to Each Observation: The time-to-event variable records the time elapsed from the study entry to each specific event or censoring time. This approach allows you to model the hazard rate as it changes over time and assess how covariates influence the risk of an event occurring at each observation point. It's well-suited for analyizing longitudinal or repeated measurements within individuals.
+
+The following R function, `calculate_depression_level`, operationalizes depression levels at year 1 using responses to the Patient Health Questionnaire (PHQ-9) items. Initially, the function filters the dataset to focus on observations corresponding to the first follow-up interview (`data_collection_period = 1`). For each participant, the function calculates the number of PHQ-9 items scored at 1 or higher, considering these as positive symptoms of depression. The function then categorizes participants into three levels of depression severity: "No depression", "Minor depression", and "Major depression". This categorization considers both the count of positive symptoms and the presence of cardinal symptoms (anhedonia and depressed mood, represented by `phq1` and `phq2`, respectively). The resulting variable, `depression_level`, is a factor variable with labels corresponding to each depression category. This approach provides a nuanced view of depressive symptoms' presence and severity at a critical time point in the study.
+
+The line `sum(phq1 >= 1, phq2 >= 1, phq3 >= 1, phq4 >= 1, phq5 >= 1, phq6 >= 1, phq7 >= 1, phq8 >= 1, phq9 >= 1) <= 1 | (phq1 < 1 & phq2 < 1) ~ "0",` is performing several operations: 1. **Sum of Positive Symptoms**: `sum(phq1 >= 1, phq2 >= 1, ..., phq9 >= 1)` counts the number of PHQ-9 items that have a score of 1 or higher. Each comparison (`phq# >= 1`) returns `TRUE` (counted as 1) if the item score is 1 or higher, indicating a positive symptom. 2. **Criteria for 'No Depression'**: The sum is then compared to `<= 1`. If the sum is 1 or less, it means the participant has 0 or 1 positive symptoms. 3. **Cardinal Symptoms Check**: The code `(phq1 < 1 & phq2 < 1)` checks if both cardinal symptoms are absent (both scores are less than 1). 4. **Combining Criteria with OR (`|`)**: If either the participant has 1 **or** fewer positive symptoms, or both cardinal symptoms are absent, they are categorized as "No depression".
+
+```{r Define Functions to Calculate Depression Levels at Year 1 and Impute the Resulting Data to Previous and Subsequent Observations, include=FALSE}
+#' Calculate depression level at Year 1
+#'
+#' This function calculates the depression level at Year 1 based on participants' PHQ-9 scores.
+#'
+#' @param data A data frame.
+#' @return A data frame with depression level calculated.
+#' @export
+#' @examples
+#' calculate_depression_level(data)
+# calculate_depression_level <- function(data) {
+#   # Create a unique identifier for each observation
+#   data <- data |> mutate(unique_id = paste(id, data_collection_period, sep = "_"))
+#   
+#   # Filter and perform calculations for Year 1
+#   year_1_data <- data |>
+#     filter(data_collection_period == 1) |>
+#     rowwise() |> 
+#     mutate(
+#       positive_symptoms_at_year_1 = sum(phq1 >= 1, phq2 >= 1, phq3 >= 1, phq4 >= 1, phq5 >= 1, phq6 >= 1, phq7 >= 1, phq8 >= 1, phq9 >= 1),
+#       cardinal_symptoms_at_year_1 = case_when(
+#         phq1 < 1 & phq2 < 1 ~ "0",    # Denied both cardinal symptoms
+#         phq1 >= 1 & phq2 < 1 ~ "1",   # Endorsed anhedonia only
+#         phq1 < 1 & phq2 >= 1 ~ "2",   # Endorsed depressed mood only
+#         phq1 >= 1 & phq2 >= 1 ~ "3",  # Endorsed both cardinal symptoms
+#         TRUE ~ NA_character_
+#       ),
+#       depression_level_at_year_1 = case_when(
+#         positive_symptoms_at_year_1 <= 1 | (phq1 < 1 & phq2 < 1) ~ "0",    # No Depression
+#         positive_symptoms_at_year_1 <= 4 & (phq1 >= 1 | phq2 >= 1) ~ "1",  # Minor Depression
+#         positive_symptoms_at_year_1 >= 5 & (phq1 >= 1 | phq2 >= 1) ~ "2",  # Major Depression
+#         TRUE ~ NA_character_
+#       )
+#     ) |> 
+#     ungroup() |>
+#     mutate(
+#       cardinal_symptoms_at_year_1 = factor(cardinal_symptoms_at_year_1, levels = c("0", "1", "2", "3"), labels = c("None", "Anhedonia", "Depressed Mood", "Both")),
+#       depression_level_at_year_1 = factor(depression_level_at_year_1, levels = c("0", "1", "2"), labels = c("No Depression", "Minor Depression", "Major Depression"))
+#     ) |> 
+#     select(unique_id, cardinal_symptoms_at_year_1, positive_symptoms_at_year_1, depression_level_at_year_1)
+#   
+#   # Merge the Year 1 data back to the original data, aligning with Year 1 observations
+#   data <- data |>
+#     left_join(year_1_data, by = "unique_id") |>
+#     mutate(
+#       cardinal_symptoms_at_year_1 = if_else(data_collection_period == 1, cardinal_symptoms_at_year_1, factor(NA, levels = c("0", "1", "2", "3"), labels = c("None", "Anhedonia", "Depressed Mood", "Both"))),
+#       positive_symptoms_at_year_1 = if_else(data_collection_period == 1, positive_symptoms_at_year_1, NA_real_),
+#       depression_level_at_year_1 = if_else(data_collection_period == 1, depression_level_at_year_1, factor(NA, levels = c("0", "1", "2"), labels = c("No Depression", "Minor Depression", "Major Depression")))
+#     ) |>
+#     select(-unique_id)  # Remove the temporary identifier
+# 
+#   return(data)
+# }
+# 
+# # Calculate the Year 1 depression levels for the analytic sample
+# analytic_data <- calculate_depression_level(analytic_data)
+```
+
+```{r Define a Function to Calculate Depression Levels at Year 1}
+#' Calculate Depression Level Based on Year 1 PHQ-9 Questionnaire Responses
+#'
+#' This function calculates the depression severity scores of individuals
+#' at one-year post-injury using the Patient Health Questionnaire (PHQ-9) scores.
+#' It evaluates cardinal symptoms and overall positive symptom count to categorize
+#' depression into 'No Depression', 'Minor Depression', or 'Major Depression'.
+#'
+#' @param data A data frame containing the clinical research data, including item scores 
+#'             for all nine items of the PHQ-9.
+#' @return A data frame with added columns for positive symptom count, cardinal symptoms, 
+#'         and depression level at one-year post-injury.
+#' @examples
+#' # Assuming `data` is a dataset containing PHQ-9 scores
+#' calculate_depression_level(data)
+#' @export
+calculate_depression_level <- function(data) {
+  data <- data |> 
+    mutate(
+      # Initialize new columns with default NA values
+      positive_symptoms_at_year_1 = NA_real_,
+      cardinal_symptoms_at_year_1 = factor(NA, levels = c("0", "1", "2", "3")),
+      depression_level_at_year_1 = factor(NA, levels = c("0", "1", "2"))
+    ) |>
+    rowwise() |> 
+    mutate(
+      # all_phq_na = all(is.na(c_across(starts_with("phq")))),
+      positive_symptoms_at_year_1 = if_else(data_collection_period == 1, 
+                                            # sum(c_across(starts_with("phq")) >= 1, na.rm = TRUE),
+                                            sum(c_across(starts_with("phq")) >= 1),
+                                            NA_real_),
+      cardinal_symptoms_at_year_1 = factor(if_else(data_collection_period == 1, 
+                                                   case_when(
+                                                     phq1 < 1 & phq2 < 1 ~ "0",  # Denied both cardinal symptoms
+                                                     phq1 >= 1 & phq2 < 1 ~ "1", # Endorsed anhedonia only
+                                                     phq1 < 1 & phq2 >= 1 ~ "2", # Endorsed depressed mood only
+                                                     phq1 >= 1 & phq2 >= 1 ~ "3" # Endorsed both cardinal symptoms
+                                                   ),
+                                                   NA_character_),
+                                            levels = c("0", "1", "2", "3"), 
+                                            labels = c("None", "Anhedonia", "Depressed Mood", "Both")),
+      depression_level_at_year_1 = factor(if_else(data_collection_period == 1, 
+                                                  case_when(
+                                                    positive_symptoms_at_year_1 <= 1 | (phq1 < 1 & phq2 < 1) ~ "0",   # Assign 'No Depression' label
+                                                    positive_symptoms_at_year_1 <= 4 & (phq1 >= 1 | phq2 >= 1) ~ "1", # Assign 'Minor Depression' label
+                                                    positive_symptoms_at_year_1 >= 5 & (phq1 >= 1 | phq2 >= 1) ~ "2"  # Assign 'Major Depression' label
+                                                  ),
+                                                  NA_character_),
+                                          levels = c("0", "1", "2"), 
+                                          labels = c("No Depression", "Minor Depression", "Major Depression"))
+    ) |> 
+    ungroup()
+    # select(-all_phq_na)
+
+  return(data)
+}
+
+# Calculate the Year 1 depression levels for the analytic sample
+analytic_data_depression <- calculate_depression_level(analytic_data)
+```
+
+<!-- ### Create and Impute the Year 1 Problematic Substance Use and Past-Year Suicide Attempt History Variables -->
+
+<!-- The following function is designed to process the relevant Year 1 variables from a longitudinal dataset by executing the following: -->
+
+<!-- 1. **Input:** It takes a dataset (`data`) as its input. This dataset may contain a number of different variables, including those collected during other (i.e., non-Year 1) follow-up interviews. -->
+<!-- 2. **Filtering Year 1 Data:** The function first filters this dataset to only include data from the Year 1 follow-up interview. -->
+<!-- 3. **Selecting and Renaming Variables:** The function then selects specific variables that are relevant to Year 1 and renames them. This renaming helps to identify these variables in later stages of the process. -->
+<!-- 4. **Joining Data:** After extracting and renaming the desired Year 1 variables, the function rejoins this subset of data back to the original dataset. This step is crucial for maintaining a complete dataset with Year 1 variables that are clearly defined. -->
+<!-- 5. **Imputing Missing Values:** The function identifies the Year 1 variables that require imputation and then imputes these missing values via the "down-up" procedure within each group of the same 'id'. In other words, it fills missing values with the nearest non-missing value from the observation either below (down) or above (up) in the same 'id' group. -->
+<!-- 6. **Output:** The final output of this function is the original dataset with the clearly marked Year 1 data and corresponding imputed missing values. -->
+
+```{r Define a Function to Extract the Year 1 Variables of Interest from the Follow-Up Data and Impute the Values Forward and Backward, include=FALSE}
+#' Extract and Impute Year 1 Data
+#'
+#' This function processes a dataset to extract Year 1 data, rename variables, 
+#' join the data back to the original dataset, and then impute missing values.
+#'
+#' @param data A data frame containing the dataset to be processed.
+#' 
+#' @return A data frame with Year 1 data extracted, renamed, and missing values imputed.
+#'
+#' @details 
+#' The function performs several steps:
+#' 1. Filters the dataset for data collection period 1.
+#' 2. Selects specific variables collected at Year 1.
+#' 3. Renames these variables to reflect their Year 1 timing.
+#' 4. Joins the extracted Year 1 data back to the original dataset.
+#' 5. Imputes missing values in Year 1 variables.
+#' 
+#' @examples
+#' # Assuming `my_dataset` is your dataset
+#' result <- extract_and_impute_year_1_data(my_dataset)
+#'
+#' @export
+# extract_and_impute_year_1_data <- function(data) {
+#   # Initialize new variables only if absent from the data frame
+#   new_vars <- c("drs_total_at_year_1", "fim_total_at_year_1", "gose_total_at_year_1",
+#                 "problematic_substance_use_at_year_1", "suicide_attempt_hx_past_year_at_year_1",
+#                 "cardinal_symptoms_at_year_1", "positive_symptoms_at_year_1", "depression_level_at_year_1")
+# 
+#   for (var in new_vars) {
+#     if (!var %in% names(data)) {
+#       data[[var]] <- NA
+#     }
+#   }
+#   
+#   # Extract and rename the Year 1 data for the new variables
+#   year_1_data <- data |>
+#     filter(data_collection_period == 1) |>
+#     select(id,
+#            drs_total_at_followup, 
+#            fim_total_at_followup,
+#            gose_total_at_followup,
+#            problematic_substance_use_at_followup,
+#            suicide_attempt_hx_past_year_at_followup) |>
+#            # cardinal_symptoms_at_year_1,
+#            # positive_symptoms_at_year_1,
+#            # depression_level_at_year_1) |>
+#     rename(drs_total_at_year_1 = drs_total_at_followup,
+#            fim_total_at_year_1 = fim_total_at_followup,
+#            gose_total_at_year_1 = gose_total_at_followup,
+#            problematic_substance_use_at_year_1 = problematic_substance_use_at_followup,
+#            suicide_attempt_hx_past_year_at_year_1 = suicide_attempt_hx_past_year_at_followup)
+# 
+#   # Rejoin the Year 1 data with the original dataset
+#   data_with_year_1_vars <- data |>
+#     left_join(year_1_data, by = "id")
+#   
+#   # # Identify columns with "_y1" suffix and their corresponding original columns
+#   # y1_cols <- names(data_with_year_1_vars)[grepl("_y1$", names(data_with_year_1_vars))]
+#   # original_cols <- sub("_y1$", "", y1_cols)
+#   # 
+#   # # Update original columns with Year 1 data and remove "_y1" columns
+#   # for (i in seq_along(y1_cols)) {
+#   #   data_with_year_1_vars <- data_with_year_1_vars |>
+#   #     mutate(!!original_cols[i] := coalesce(!!sym(y1_cols[i]), !!sym(original_cols[i]))) |>
+#   #     select(-!!sym(y1_cols[i]))
+#   # }
+# 
+#   # Define the variables to be imputed/filled
+#   year_1_vars_to_impute <- c("drs_total_at_year_1",
+#                              "fim_total_at_year_1",
+#                              "gose_total_at_year_1",
+#                              "problematic_substance_use_at_year_1",
+#                              "suicide_attempt_hx_past_year_at_year_1",
+#                              "cardinal_symptoms_at_year_1",
+#                              "positive_symptoms_at_year_1",
+#                              "depression_level_at_year_1")
+#   
+#   # Impute the values for each participant
+#   imputed_data <- data_with_year_1_vars |>
+#     group_by(id) |>
+#     fill(!!!syms(year_1_vars_to_impute), .direction = "downup") |>
+#     ungroup()
+# 
+#   return(imputed_data)
+# }
+# 
+# # Extract and impute the Year 1 problematic substance use and past-year suicide attempt data for the analytic sample
+# analytic_data_depression_imputed <- extract_and_impute_year_1_data(analytic_data_depression)
+# 
+# # Save the 'analytic_data' data frame in a single .rds file
+# saveRDS(analytic_data, here(data_processed_dir, "analytic_data.rds"))
+# 
+# # Save the 'analytic_data' data frame as a CSV file in the 'data/processed' subdirectory
+# write.csv(analytic_data, file.path(data_processed_dir, "analytic_data.csv"), row.names = FALSE)
+```
+
+```{r Define a Function to Extract the Year 1 Variables of Interest and Impute the Values to Previous and Subsequent Observations}
+#' Extract and Impute Year 1 Data
+#'
+#' This function processes a dataset to extract Year 1 data, rename variables, 
+#' join the data back to the original dataset, and then impute missing values.
+#'
+#' @param data A data frame containing the dataset to be processed.
+#' 
+#' @return A data frame with Year 1 data extracted, renamed, and missing values imputed.
+#'
+#' @details 
+#' The function performs several steps:
+#' 1. Filters the dataset for data collection period 1.
+#' 2. Selects specific variables collected at Year 1.
+#' 3. Renames these variables to reflect their Year 1 timing.
+#' 4. Joins the extracted Year 1 data back to the original dataset.
+#' 5. Imputes missing values in Year 1 variables.
+#' 
+#' @examples
+#' # Assuming `my_dataset` is your dataset
+#' result <- extract_and_impute_year_1_data(my_dataset)
+#'
+#' @export
+extract_and_impute_year_1_data <- function(data) {
+    # Specify the variables to extract and impute
+    vars_to_extract <- c("drs_total_at_followup", 
+                         "fim_total_at_followup", 
+                         "gose_total_at_followup", 
+                         "problematic_substance_use_at_followup", 
+                         "suicide_attempt_hx_past_year_at_followup")
+    year_1_vars_to_impute <- c("cardinal_symptoms_at_year_1", 
+                               "positive_symptoms_at_year_1", 
+                               "depression_level_at_year_1")
+    
+    # Extract Year 1 values and create new columns
+    for (var in vars_to_extract) {
+      # Replace '_followup' with '_year_1' in the variable name
+      new_var_name <- sub("_followup", "_year_1", var)
+      data <- data |>
+        mutate(!!new_var_name := if_else(data_collection_period == 1, !!sym(var), NA))
+      year_1_vars_to_impute <- c(year_1_vars_to_impute, new_var_name)
+    }
+
+    # Impute the values across all observations per participant
+    imputed_data <- data |>
+      group_by(id) |>
+      fill(!!!syms(year_1_vars_to_impute), .direction = "downup")
+    
+    return(imputed_data)
+}
+
+# Extract and impute the Year 1 problematic substance use and past-year suicide attempt data for the analytic sample
+analytic_data_imputed <- extract_and_impute_year_1_data(analytic_data_depression)
+```
+
+```{r Select and Arrange the Final Data Columns in the Final Analytic Sample Data Frame}
+# Select and reorder merged data columns
+analytic_data_imputed <- analytic_data_imputed |>
   select(
-    id,
-    data_collection_period, 
-    date_of_data_collection,
-    date_of_death,
-    status_at_followup,
-    date_of_birth, 
-    date_of_injury,
-    sex,
-    age,
-    cause_of_injury,
+    id, data_collection_period,
+    status_at_followup, event_status, 
+    time_to_event, time_to_censorship,
+    time_to_expiration, date_of_followup,
+    date_of_death, date_of_birth,
+    date_of_injury, sex, age, cause_of_injury,
     marital_status_at_injury,
     education_level_at_injury,
     employment_at_injury,
     rehab_payor_primary,
-    suicide_attempt_hx_lifetime,
-    suicide_attempt_hx_past_year,
-    phq1, phq2, phq3, phq4, phq5, phq6, phq7, phq8, phq9
-    )
+    rehab_payor_primary_type,
+    problematic_substance_use_at_injury,
+    problematic_substance_use_at_year_1,
+    problematic_substance_use_at_followup,
+    drs_total_at_followup,
+    fim_total_at_followup,
+    gose_total_at_followup,
+    drs_total_at_year_1,
+    fim_total_at_year_1,
+    gose_total_at_year_1,
+    func_score_at_year_1,
+    suicide_attempt_hx_lifetime_at_injury,
+    suicide_attempt_hx_past_year_at_injury,
+    suicide_attempt_hx_past_year_at_year_1,
+    suicide_attempt_hx_past_year_at_followup,
+    phq1, phq2, phq3, phq4, phq5, phq6, phq7, phq8, phq9,
+    positive_symptoms_at_year_1,
+    cardinal_symptoms_at_year_1,
+    depression_level_at_year_1
+    ) |>
+  arrange(id, data_collection_period)
 
-# Verify the changes
-str(combined_data)
+# Save the 'analytic_data' data frame in a single .rds file
+saveRDS(analytic_data_imputed, here(data_processed_dir, "analytic_data_imputed.rds"))
 
-# Ensure that all dates are correctly formatted as POSIXct
-date_vars <- c("date_of_data_collection", "date_of_birth", "date_of_injury", "date_of_death")
-combined_data[date_vars] <- lapply(combined_data[date_vars], as.POSIXct, origin = "1970-01-01")
-
-# Select the necessary columns dynamically based on the mapping lists
-desired_columns_from_lists <- unlist(lapply(c(baseline_mappings_and_na, followup_mappings_and_na), function(list) list$new_name))
-desired_columns <- c("id", "data_collection_period", desired_columns_from_lists)
-combined_data <- combined_data %>% select(all_of(desired_columns))
-
-
-# # Perform additional mutations required on combined_data
-# # Create the data_collection_period by assigning 0 for baseline entries
-# combined_data <- combined_data %>%
-#   mutate(data_collection_period = ifelse(is.na(followup_period), 0, followup_period))
-
-# # At this point, combined_data has all of the new variable names, so we can dynamically select them
-# final_variable_names <- names(combined_data)
-# desired_columns <- final_variable_names[final_variable_names %in% combined_new_names]
-# 
-# # Add additional columns that are not part of the renaming process but need to be in the final data frame
-# additional_columns <- c("id", "data_collection_period", "date_of_data_collection", "problematic_substance_use")
-# desired_columns <- union(additional_columns, desired_columns)
-# 
-# # Select only the desired columns in the combined_data data frame
-# combined_data <- combined_data %>% select(all_of(desired_columns))
-# 
-# # Get the new names from the mapping lists after cleaning and converting the data
-# baseline_new_names <- unlist(lapply(baseline_mappings_and_na, function(x) x$new_name))
-# followup_new_names <- unlist(lapply(followup_mappings_and_na, function(x) x$new_name))
-# 
-# # Combine new names from both baseline and followup data frames
-# combined_new_names <- union(baseline_new_names, followup_new_names)
-# 
-# # Add additional columns that are not part of the renaming process but need to be in the final data frame
-# additional_columns <- c("id", "data_collection_period", "date_of_data_collection", "problematic_substance_use")
-# 
-# # Combine all desired column names
-# desired_columns <- c(additional_columns, combined_new_names)
-# 
-# # Select only the desired columns in the combined_data data frame
-# combined_data <- combined_data %>% select(all_of(desired_columns))
-# 
-# # After merging the data frames
-# combined_data <- combined_data %>%
-#   mutate(
-#     data_collection_period = coalesce(followup_period, 0),
-#     problematic_substance_use = case_when(
-#       data_collection_period == 0 ~ PROBLEMUse,
-#       data_collection_period >= 1 ~ PROBLEMUseF,
-#       TRUE ~ as.factor(NA)
-#     )
-#   ) %>%
-#   select(-PROBLEMUse, -PROBLEMUseF) # Remove the original PROBLEMUse and PROBLEMUseF columns
-
-# Note that `coalesce` is used to fill in `followup_period` with 0 for baseline data where it doesn't exist. The `case_when` logic for `problematic_substance_use` should work as intended if the `data_collection_period` is correctly set. You do not need to reassign `date_of_data_collection` if it has already been properly converted to `POSIXct` earlier in the process. Remember to test each step to ensure that the expected changes are happening. The use of `str(combined_data)` will be very helpful to verify that the classes of the variables are as epxected after each operation.
+# Save the 'analytic_data' data frame as a CSV file in the 'data/processed' subdirectory
+write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_imputed.csv"), row.names = FALSE)
 ```
 
-```{r adjust the eligibility filtering code}
-# Filter baseline data base on study dates
-eligible_baseline <- baseline_data %>%
-  filter(date_of_injury >= start_date & date_of_injury <= end_date)
+## Create a Sample Data Frame
 
-# Merge the data frames based on the filtered baseline data
-merged_data <- full_join(eligible_baseline, followup_data, by = "id")
+```{r Create a Sample Data Frame of the Imputed Data, include=FALSE}
+# Set a random seed for reproducibility
+set.seed(42)
 
-# Apply the filtering on the merged data for follow-up periods
-merged_data <- merged_data %>%
-  filter((!is.na(date_of_followup) & date_of_followup <= followup_end_date) | !is.na(date_of_death))
+# Create a vector of unique participant IDs
+unique_participant_ids <- unique(analytic_data_imputed$id)
+
+# Randomly sample 15 participant IDs
+sampled_participant_ids <- sample(unique_participant_ids, 15)
+
+# Create a filtered data frame with all observations for the sampled participants
+sampled_analytic_data <- analytic_data_imputed |>
+  filter(id %in% sampled_participant_ids) |>
+  select(-date_of_birth, -age, -status_at_followup) |>
+  arrange(id, data_collection_period)
+
+# Write the sampled data frame to a CSV file
+write.csv(sampled_analytic_data, file = "~/Downloads/sampled_analytic_data.csv", row.names = FALSE)
 ```
 
-```{r}
-# Merge the data frames with additional processing for followup_period and dates
-combined_data <- merge(baseline_data2, followup_data2, by = "id", all = TRUE) %>%
-  mutate(
-    data_collection_period = coalesce(followup_period, 0),
-    date_of_data_collection = coalesce(as.POSIXct(date_of_followup, format = "%Y-%m-%d"), as.POSIXct(date_of_entry, format = "%Y-%m-%d")),
-    PROBLEMUse = factor(PROBLEMUse, levels = c(0, 1, 77, 99), labels = c("No", "Yes", "Refused", "Unknown")),
-    PROBLEMUseF = factor(PROBLEMUseF, levels = c(0, 1, 99), labels = c("No", "Yes", "Unknown")),
-    problematic_substance_use = case_when(
-      data_collection_period == 0 ~ PROBLEMUse,
-      data_collection_period >= 1 ~ PROBLEMUseF,
-      TRUE ~ as.factor(NA)
-    )
-  ) %>%
-  select(-followup_period, -date_of_followup, -date_of_entry, -PROBLEMUse, -PROBLEMUseF)
+```{r Retain Only Final Observation Per Participant}
+# Retain only the last observation for each unique 'id' based on the maximum 'time_to_event'
+analytic_data_final <- analytic_data_imputed |>
+  arrange(id, time_to_event) |>
+  group_by(id) |>
+  slice(n()) |>
+  ungroup()
 
-# Dynamic column selection based on mapping lists
-desired_columns <- c("id", "data_collection_period", "date_of_data_collection",
-                     unlist(lapply(baseline_mappings_and_na, function(x) x$new_name)),
-                     unlist(lapply(followup_mappings_and_na, function(x) x$new_name)),
-                     "problematic_substance_use")
+# Save the 'analytic_data' data frame in a single .rds file
+saveRDS(analytic_data_final, here(data_processed_dir, "analytic_data_final.rds"))
 
-combined_data2 <- combined_data %>% select(all_of(desired_columns))
+# Save the 'analytic_data' data frame as a CSV file in the 'data/processed' subdirectory
+write.csv(analytic_data_final, file.path(data_processed_dir, "analytic_data_final.csv"), row.names = FALSE)
 ```
 
-```{r}
+```{r Create a Sample Data Frame of the Final Analytic Data, include=FALSE}
+# Set a random seed for reproducibility
+set.seed(42)
 
-# After merging the data frames
-# Convert PROBLEMUse and PROBLEMUseF to factors with consistent levels
-combined_data <- combined_data %>%
-  mutate(
-    PROBLEMUse = factor(PROBLEMUse, levels = c(0, 1, 77, 99), labels = c("No", "Yes", "Refused", "Unknown")),
-    PROBLEMUseF = factor(PROBLEMUseF, levels = c(0, 1, 99), labels = c("No", "Yes", "Unknown"))
-  )
+# Create a vector of unique participant IDs
+unique_participant_ids <- unique(analytic_data_final$id)
 
-# After converting PROBLEMUse and PROBLEMUseF to factors
-combined_data <- combined_data %>%
-  mutate(
-    problematic_substance_use = case_when(
-      data_collection_period == 0 ~ PROBLEMUse,
-      data_collection_period >= 1 ~ PROBLEMUseF,
-      TRUE ~ as.factor(NA)
-    )
-  ) %>%
-  select(-PROBLEMUse, -PROBLEMUseF) # Remove the original PROBLEMUse and PROBLEMUseF columns
+# Randomly sample 15 participant IDs
+sampled_participant_ids <- sample(unique_participant_ids, 15)
 
-# After creating problematic_substance_use
-combined_data <- combined_data %>%
-  select(id, sex, age, data_collection_period, date_of_data_collection, problematic_substance_use)
+# Create a filtered data frame with all observations for the sampled participants
+sampled_analytic_data_final <- analytic_data_final |>
+  filter(id %in% sampled_participant_ids) |>
+  select(-date_of_birth, -age, -status_at_followup) |>
+  arrange(id, data_collection_period)
+
+# Write the sampled data frame to a CSV file
+write.csv(sampled_analytic_data_final, file = "~/Downloads/sampled_analytic_data_final.csv", row.names = FALSE)
 ```
-
-```{r}
-# Combine the expiration dates into `date_of_death`
-# Create a new `date_of_death` variable that takes the non-NA value from `Death` or `DeathF`, preferring `DeathF` if both are present:
-combined_data <- combined_data %>%
-  mutate(date_of_death = ifelse(!is.na(DeathF), DeathF, Death),
-         FollowUpPeriod = ifelse(!is.na(Death) & is.na(FollowUpPeriod), 0, FollowUpPeriod)) %>%
-  select(-Death, -DeathF)
-
-# Check the first few rows to ensure the data look correct
-head(combined_data)
-
-# Check the structure to verify the classes and missing data
-str(combined_data)
-```
-
-```{r}
-# 1. Merge `baseline_data` and `followup_data` Data Frames
-# Since both datasets include an `id` variable, we can use it to merge them. Given that `date_of_death` appears in both data frames, we will initially keep them separate to later determine the necessary action.
-combined_data <- merge(baseline_data, followup_data, by = "id", all = TRUE)
-
-# Display original variable classes of baseline_data
-#combined_vars <- c("sex", "age", "date_of_birth", "date_of_injury", "date_of_death.x", "date_of_death.y", "cause_of_injury", "marital_status_at_injury", "education_level_at_injury", "employment_at_injury", "rehab_payor_primary", "suicide_attempt_hx_lifetime", "problematic_substance_use.x", "problematic_substance_use.y", "followup_period", "followup_status", "date_of_followup", "suicide_attempt_hx_past_year", "phq1", "phq2", "phq3", "phq4", "phq5", "phq6", "phq7", "phq8", "phq9")
-classes_combined <- sapply(combined_data, class)
-```
-
-```{r}
-# Assume combined_data is already created by merging baseline_data and followup_data 
-combined_data <- combined_data %>%
-  mutate(
-    # Create a new 'date_of_death' that takes the value from 'date_of_death.y' if it's not NA,
-    # otherwise, take 'date_of_death.x'
-    date_of_death = if_else(!is.na(date_of_death.y), date_of_death.y, date_of_death.x),
-    
-    # Add a 'followup_period' of 0 for pre-discharge deaths
-    followup_period = if_else(!is.na(date_of_death.x) & is.na(followup_period), 0, followup_period)
-  ) %>%
-  # Now we can filter based on 'date_of_injury' and the new 'date_of_death'
-  filter(date_of_injury >= ymd("2006-10-01") & date_of_injury <= ymd("2012-10-01")) %>%
-  filter(is.na(date_of_death) | date_of_death <= ymd("2022-10-01"))
-
-# Drop the original 'date_of_death.x' and 'date_of_death.y' columns as they are no longer needed
-#combined_data <- select(combined_data, -date_of_death.x, -date_of_death.y)
-```
-
-```{r}
-# 3. Determine the Necessary Action for `date_of_death` Variables
-# We need to decide which `date_of_death` to retain. If `date_of_death` from `followup_data` is more recent, it should take precedence.
-combined_data <- combined_data %>%
-  mutate(date_of_death = pmax(baseline_data.date_of_death, followup_data.date_of_death, na.rm = TRUE))
-```
-
-```{r}
-# 4. Replace Missing Values with `NA`
-# For each variable type, apply the appropriate missing value replacement.
-
-# For dates:
-missing_dates <- as.Date(c("9999-09-09", "4444-04-04"), format = "%Y-%m-%d")
-combined_data <- combined_data %>%
-  mutate(across(where(is.Date), ~na.if(.x, missing_dates)))
-
-# For `haven_labelled`:
-missing_values_labelled <- c(66, 77, 88, 99)
-combined_data <- combined_data %>%
-  mutate(across(where(~inherits(.x, "haven_labelled")), ~zap_labels(set_labels(.x, na_values = missing_values_labelled))))
-
-# For numeric values that represent missing data:
-combined_data <- combined_data %>%
-  mutate(across(where(is.numeric), ~na.if(.x, 999)))
-
-# After replacing the missing values, you may want to convert `haven_labelled` to factors with `as_factor()` to retain SPSS labels
-
-# 5. Convert `haven_labelled` factors: To retain the original SPSS labels and convert the variables to factors:
-combined_data <- combined_data %>%
-  mutate(across(where(~inherits(.x, "haven_labelled")), as_factor))
-
-# 6. Final Checks and Cleaning
-# Ensure all variables are in the correct format, and remove any temporary variables or duplicates.
-# Removing duplicates if any exist (based on id)
-combined_data <- combined_data %>%
-  distinct(id, .keep_all = TRUE)
-
-# Check for any unexpected NA values that might have been introduced
-summary(combined_data)
-```
-
-For variables imported using `haven`, they maintain their labels, so you will need to use `haven`'s functions to handle missing values.
-
-```{r}
-# Define a custom function to replace specified missing codes with NA for haven_labelled variables
-replace_missing_labelled <- function(variable, missing_codes) {
-  na_values <- zap_labels(set_labels(variable, na_values = missing_codes))
-  return(na_values)
-}
-
-# Apply the function to the desired variable
-followup_data <- followup_data %>%
-  mutate(phq3 = replace_missing_labelled(phq3, c(66, 77, 88, 99)))
-```
-
-If the missing value codes are not identical for all variables within a class, you will need to handle each variable separately, or write a function that can apply the correct missing value codes based on some logic or a lookup table.
-
-```{r}
-# Custom function to replace missing values based on a lookup table or logic
-replace_custom_missing <- function(data, variable_name, missing_codes) {
-  data[[variable_name]] <- replace_missing_labelled(data[[variable_name]], missing_codes)
-  return(data)
-}
-
-# Apply the function for a variable with custom missing codes
-followup_data <- replace_custom_missing(followup_data, "date_of_death", c("9999-09-09", "4444-04-04"))
-```
-
-When converting labelled variables to factors, you can retain the labels as factor levels using `haven`'s `as_factor()` function. By using the `as_factor()` function, you ensure that the levels of the factor variable display the original English dscriptions from SPSS, and missing values are handled appropriately. If `as_factor()` does not give the desired output, you may need to use `fct_recode()` from the `forcats` package to manually assign labels to levels.
-
-```{r}
-# Convert a haven_labelled variable to a factor with labels
-followup_data <- followup_data %>%
-  mutate(problematic_substance_use = as_factor(problematic_substance_use))
-```
-
-# --
-
-In this code: - We define a vector `column_mappings` that pairs the new column names (left) with the original column names (right). - Inside the `rename` and `select` functions, we use `!!!` to unquote the vector, which allows us to use the vector's contents as arguments. This avoids the need to manually list the column names twice. This approach makes the code more efficient and easier to maintain because you only need to update the `column_mappings` vector if you want to change the column names or add/remove columns. It's a good practice for enhancing code readability and reducing redundancy.
-
-We'll join `form1` and `form2` on `Mod1id`. Sin
