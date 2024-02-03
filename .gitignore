@@ -39,3 +39,6 @@ docs
 !/notebooks/preprocessing/
 /notebooks/preprocessing/*
 !/notebooks/preprocessing/preprocessing.qmd
+!/notebooks/exploratory/
+/notebooks/exploratory/*
+!/notebooks/exploratory/missing_data_analysis.qmd
