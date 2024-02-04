@@ -1,0 +1,370 @@
+---
+title: "Generate Descriptive Tables"
+author: "Brennan Hickson"
+format: html
+editor: visual
+---
+
+# Install and Load Libraries
+
+```{r Initial Setup and Library Loading, echo=TRUE, eval=FALSE}
+# Load the pacman package (install if necessary)
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+
+# Install and load prerequisite libraries
+pacman::p_load(extrafont, gt, gtsummary, here, tidyverse)
+
+# Create the 'output/tables' subdirectory if not already available
+output_tables_dir <- here("output", "tables")
+if (!dir.exists(output_tables_dir)) {
+  dir.create(output_tables_dir, recursive = TRUE)
+}
+
+# Import fonts from Font Book
+loadfonts(device = "all", quiet = TRUE)
+```
+
+```{r Check raw problematic substance use values}
+merged_psu_at_injury <- merged_data |>
+  filter(data_collection_period == 0, !is.na(problematic_substance_use_at_injury))
+```
+
+# Prepare Covariate Sets for Table 1
+
+```{r Prepare Covariate Sets of Interest for Table 1}
+# Define all covariates of interest
+all_proposed_covariates <- c("id", "time_to_event_in_years", "time_to_censorship_in_years",
+                             "time_to_expiration_in_years", "age", "age_at_censorship",
+                             "age_at_expiration", "sex", "education_level_at_injury",
+                             "employment_at_injury", "marital_status_at_injury",
+                             "rehab_payor_primary", "rehab_payor_primary_type",
+                             "cause_of_injury", "drs_total_at_year_1",
+                             "fim_total_at_year_1", "gose_total_at_year_1",
+                             "func_score_at_year_1",
+                             "problematic_substance_use_at_injury", 
+                             "problematic_substance_use_at_year_1",
+                             "suicide_attempt_hx_lifetime_at_injury", 
+                             "suicide_attempt_hx_past_year_at_injury",
+                             "suicide_attempt_hx_past_year_at_year_1",
+                             "depression_level_at_year_1")
+
+# Define select covariates of interest (remove individual function scores)
+select_covariates_1 <- c("id", "time_to_event_in_years", "time_to_censorship_in_years",
+                         "time_to_expiration_in_years", "age", "age_at_censorship",
+                         "age_at_expiration", "sex", "education_level_at_injury",
+                         "employment_at_injury", "marital_status_at_injury",
+                         "rehab_payor_primary", "rehab_payor_primary_type",
+                         "cause_of_injury", "func_score_at_year_1",
+                         "problematic_substance_use_at_injury", 
+                         "problematic_substance_use_at_year_1",
+                         "suicide_attempt_hx_lifetime_at_injury",
+                         "suicide_attempt_hx_past_year_at_injury",
+                         "suicide_attempt_hx_past_year_at_year_1",
+                         "depression_level_at_year_1")
+
+# Define select covariates of interest (remove individual function scores and past-year suicide attempt at injury)
+select_covariates_2 <- c("id", "time_to_event_in_years", "time_to_censorship_in_years",
+                         "time_to_expiration_in_years", "age", "age_at_censorship",
+                         "age_at_expiration", "sex", "education_level_at_injury",
+                         "employment_at_injury", "marital_status_at_injury",
+                         "rehab_payor_primary", "rehab_payor_primary_type",
+                         "cause_of_injury", "func_score_at_year_1",
+                         "problematic_substance_use_at_injury", 
+                         "problematic_substance_use_at_year_1",
+                         "suicide_attempt_hx_lifetime_at_injury", 
+                         "suicide_attempt_hx_past_year_at_year_1",
+                         "depression_level_at_year_1")
+
+# Define select covariates of interest (remove individual function scores, past-year suicide attempt at injury, and problematic substance use at Year 1)
+select_covariates_3 <- c("id", "time_to_event_in_years", "time_to_censorship_in_years",
+                         "time_to_expiration_in_years", "age", "age_at_censorship",
+                         "age_at_expiration", "sex", "education_level_at_injury",
+                         "employment_at_injury", "marital_status_at_injury",
+                         "rehab_payor_primary", "rehab_payor_primary_type",
+                         "cause_of_injury", "func_score_at_year_1",
+                         "problematic_substance_use_at_injury", 
+                         "suicide_attempt_hx_lifetime_at_injury", 
+                         "suicide_attempt_hx_past_year_at_year_1",
+                         "depression_level_at_year_1")
+
+analytic_data_for_tables_all <- analytic_data_final %>%
+  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select("id", all_of(all_proposed_covariates)) |>
+  arrange(id)
+
+analytic_data_for_tables_select_1 <- analytic_data_final %>%
+  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select("id", all_of(select_covariates_1)) |>
+  arrange(id)
+
+analytic_data_for_tables_select_2 <- analytic_data_final %>%
+  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select("id", all_of(select_covariates_2)) |>
+  arrange(id)
+
+analytic_data_for_tables_select_3 <- analytic_data_final %>%
+  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select("id", all_of(select_covariates_3)) |>
+  arrange(id)
+```
+
+```{r Create complete-case and incomplete-case subsamples}
+# Create a new data frame with only complete cases
+complete_cases_all <- analytic_data_for_tables_all[complete.cases(analytic_data_for_tables_all), ]
+complete_cases_select_1 <- analytic_data_for_tables_select_1[complete.cases(analytic_data_for_tables_select_1), ]
+complete_cases_select_2 <- analytic_data_for_tables_select_2[complete.cases(analytic_data_for_tables_select_2), ]
+complete_cases_select_3 <- analytic_data_for_tables_select_3[complete.cases(analytic_data_for_tables_select_3), ]
+
+# Create a new data frame with only incomplete cases
+incomplete_cases_all <- analytic_data_for_tables_all[!complete.cases(analytic_data_for_tables_all), ]
+incomplete_cases_select_1 <- analytic_data_for_tables_select_1[!complete.cases(analytic_data_for_tables_select_1), ]
+incomplete_cases_select_2 <- analytic_data_for_tables_select_2[!complete.cases(analytic_data_for_tables_select_2), ]
+incomplete_cases_select_3 <- analytic_data_for_tables_select_3[!complete.cases(analytic_data_for_tables_select_3), ]
+```
+
+```{r include=FALSE}
+# Plot the number of missing values across all proposed covariates
+all_proposed_covariates_ic_missing_value_counts_plot <- gg_miss_var(incomplete_cases_all) +
+  labs(x = "Covariates",
+       y = "Number of Missing Values"
+  ) +
+  scale_x_discrete(
+    labels = c(
+      age = "Age at Injury",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      drs_total_at_year_1 = "DRS Score at Year 1",
+      fim_total_at_year_1 = "FIM Score at Year 1",
+      gose_total_at_year_1 = "GOS-E Score at Year 1",
+      func_score_at_year_1 = "Function Factor Score at Year 1",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) +
+  scale_y_continuous(labels = label_comma()) +
+  theme_classic() +
+  customization +
+  geom_text(
+    data = na_counts_for_all_proposed_covariates,
+    aes(x = variable, y = n_missing, label = scales::comma(n_missing)), # Position and format labels
+    vjust = -1, # Adjust text position
+    hjust = 0.5, # Adjust horizontal position to place text at the end of the bar
+    size = 3.25, # Adjust text size
+    family = "Proxima Nova"
+  )
+
+ggsave(here(missingness_plots_dir, "figure_17-1_all_proposed_covariates_missing_value_counts.png"),
+       all_proposed_covariates_missing_value_counts_plot, dpi = 300)
+```
+
+```{r Table 1-1: Generate descriptive statistics table for the full analytic sample with all proposed covariates}
+# Generate table with descriptive statistics for the final analytic sample
+table_1_1 <- analytic_data_for_tables_all |>
+  select(-"id") |>
+  tbl_summary(
+    by = depression_level_at_year_1,
+    type = list(gose_total_at_year_1 ~ "continuous"),  # Explicitly set GOS-E to continuous
+    statistic = list(all_continuous() ~ "{median} ({p25}-{p75})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = list(all_continuous() ~ 2,  # Default for all continuous variables
+                  starts_with("age") ~ 0,
+                  starts_with("education") ~ 0,
+                  starts_with("fim") ~ 0,
+                  starts_with("gose") ~ 0,
+                  starts_with("drs") ~ 1),
+    label = list(
+      time_to_event_in_years = "Duration of Follow-Up (years)",
+      time_to_censorship_in_years = "Time to Censorship (years)",
+      time_to_expiration_in_years = "Time to Expiration (years)",
+      age_at_censorship = "Age at Censorship (years)",
+      age_at_expiration = "Age at Expiration (years)",
+      age = "Age at Injury (years)",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      drs_total_at_year_1 = "Total DRS Score at Year 1",
+      fim_total_at_year_1 = "Total FIM Score at Year 1",
+      gose_total_at_year_1 = "Total GOS-E Score at Year 1",
+      func_score_at_year_1 = "Function Factor Score at Year 1",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) |>
+  add_overall() |>
+  bold_labels() |>
+  add_p(
+    pvalue_fun = ~ style_pvalue(.x, digits = 3)  # Format p-values with 3 decimal places
+  ) |>
+  bold_p() |>
+  as_gt() |>
+  tab_header("Table 1-1: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with All Proposed Covariates by Depression Level at Year 1") |>
+  gtsave(
+    filename = here(output_tables_dir, "table_1-1_full_analytic_sample_with_all_proposed_covariates.png")
+  )
+```
+
+```{r Table 1-2: Generate descriptive statistics table for the full analytic sample with select predictors (excluding DRS, FIM, and GOS-E scores)}
+# Generate table with descriptive statistics for the final analytic sample with select covariates
+table_1_2 <- analytic_data_for_tables_select_1 |>
+  select(-"id") |>
+  tbl_summary(
+    by = depression_level_at_year_1,
+    statistic = list(all_continuous() ~ "{median} ({p25}-{p75})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = list(all_continuous() ~ 2,  # Default for all continuous variables
+                  starts_with("age") ~ 0,
+                  starts_with("education") ~ 0),  # Override for variables that start with 'age' or 'education'
+    label = list(
+      time_to_event_in_years = "Duration of Follow-Up (years)",
+      time_to_censorship_in_years = "Time to Censorship (years)",
+      time_to_expiration_in_years = "Time to Expiration (years)",
+      age_at_censorship = "Age at Censorship (years)",
+      age_at_expiration = "Age at Expiration (years)",
+      age = "Age at Injury (years)",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      func_score_at_year_1 = "Function Factor Score at Year 1",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) |>
+  add_overall() |>
+  bold_labels() |>
+  # Override default statistical tests for 'Race', 'Mar', and 'RehabPay1' and format p-values with 3 decimal places
+  # add_p(test = list(Race ~ "fisher.test", Mar ~ "fisher.test", RehabPay1 ~ "fisher.test"),
+  #       pvalue_fun = ~ style_pvalue(.x, digits = 3)) |>
+  add_p(
+    pvalue_fun = ~ style_pvalue(.x, digits = 3)  # Format p-values with 3 decimal places
+  ) |>
+  bold_p() |>
+  as_gt() |>
+  tab_header("Table 1-2: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with Select Covariates (Excluding Individual Function Scores) by Depression Level at Year 1") |>
+  gtsave(
+    filename = here(output_tables_dir, "table_1-2_full_analytic_sample_with_select_covariates_1.png")
+  )
+```
+
+```{r Table 1-3: Generate descriptive statistics table for the full analytic sample with select predictors (excluding DRS, FIM, and GOS-E scores and Past-Year History of Suicide Attempt at Injury)}
+# Generate table with descriptive statistics for the final analytic sample with select covariates
+table_1_3 <- analytic_data_for_tables_select_2 |>
+  select(-"id") |>
+  tbl_summary(
+    by = depression_level_at_year_1,
+    statistic = list(all_continuous() ~ "{median} ({p25}-{p75})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = list(all_continuous() ~ 2,  # Default for all continuous variables
+                  starts_with("age") ~ 0,
+                  starts_with("education") ~ 0),  # Override for variables that start with 'age' or 'education'
+    label = list(
+      time_to_event_in_years = "Duration of Follow-Up (years)",
+      time_to_censorship_in_years = "Time to Censorship (years)",
+      time_to_expiration_in_years = "Time to Expiration (years)",
+      age_at_censorship = "Age at Censorship (years)",
+      age_at_expiration = "Age at Expiration (years)",
+      age = "Age at Injury (years)",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      func_score_at_year_1 = "Function Factor Score at Year 1",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) |>
+  add_overall() |>
+  bold_labels() |>
+  # Override default statistical tests for 'Race', 'Mar', and 'RehabPay1' and format p-values with 3 decimal places
+  # add_p(test = list(Race ~ "fisher.test", Mar ~ "fisher.test", RehabPay1 ~ "fisher.test"),
+  #       pvalue_fun = ~ style_pvalue(.x, digits = 3)) |>
+  add_p(
+    pvalue_fun = ~ style_pvalue(.x, digits = 3)  # Format p-values with 3 decimal places
+  ) |>
+  bold_p() |>
+  as_gt() |>
+  tab_header("Table 1-3: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with Select Covariates (Excluding Individual Function Scores and Past-Year History of Suicide Attempt at Injury) by Depression Level at Year 1") |>
+  gtsave(
+    filename = here(output_tables_dir, "table_1-3_full_analytic_sample_with_select_covariates_2.png")
+  )
+```
+
+```{r Table 1-4: Generate descriptive statistics table for the full analytic sample with select predictors (excluding DRS, FIM, and GOS-E scores; Past-Year History of Suicide Attempt at Injury; and Problematic Substance Use at Year 1)}
+# Generate table with descriptive statistics for the final analytic sample with select covariates
+table_1_4 <- analytic_data_for_tables_select_3 |>
+  select(-"id") |>
+  tbl_summary(
+    by = depression_level_at_year_1,
+    statistic = list(all_continuous() ~ "{median} ({p25}-{p75})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = list(all_continuous() ~ 2,  # Default for all continuous variables
+                  starts_with("age") ~ 0,
+                  starts_with("education") ~ 0),  # Override for variables that start with 'age' or 'education'
+    label = list(
+      time_to_event_in_years = "Duration of Follow-Up (years)",
+      time_to_censorship_in_years = "Time to Censorship (years)",
+      time_to_expiration_in_years = "Time to Expiration (years)",
+      age_at_censorship = "Age at Censorship (years)",
+      age_at_expiration = "Age at Expiration (years)",
+      age = "Age at Injury (years)",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      func_score_at_year_1 = "Function Factor Score at Year 1",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) |>
+  add_overall() |>
+  bold_labels() |>
+  # Override default statistical tests for 'Race', 'Mar', and 'RehabPay1' and format p-values with 3 decimal places
+  # add_p(test = list(Race ~ "fisher.test", Mar ~ "fisher.test", RehabPay1 ~ "fisher.test"),
+  #       pvalue_fun = ~ style_pvalue(.x, digits = 3)) |>
+  add_p(
+    pvalue_fun = ~ style_pvalue(.x, digits = 3)  # Format p-values with 3 decimal places
+  ) |>
+  bold_p() |>
+  as_gt() |>
+  tab_header("Table 1-4: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with Select Covariates (Excluding Individual Function Scores, Past-Year History of Suicide Attempt at Injury, and Problematic Substance Use at Year 1) by Depression Level at Year 1") |>
+  gtsave(
+    filename = here(output_tables_dir, "table_1-4_full_analytic_sample_with_select_covariates_3.png")
+  )
+```
