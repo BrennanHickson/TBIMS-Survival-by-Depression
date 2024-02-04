@@ -36,9 +36,9 @@ docs
 /notebooks/*
 
 # Except the preprocessing.qmd file in the preprocessing subdirectory
-!/notebooks/preprocessing/
-/notebooks/preprocessing/*
-!/notebooks/preprocessing/preprocessing.qmd
+!/notebooks/
+/notebooks/*
+!/notebooks/01_preprocessing.qmd
 !/notebooks/exploratory/
 /notebooks/exploratory/*
 !/notebooks/exploratory/missing_data_analysis.qmd
