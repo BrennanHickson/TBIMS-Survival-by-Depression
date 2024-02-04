@@ -78,6 +78,14 @@ The following TBIMS variables were proposed as covariates in the survival analys
 
 The present study utilizes a retrospective observational design and draws data from the [Traumatic Brain Injury Model Systems](https://msktc.org/about-model-systems/TBI) (TBIMS) longitudinal cohort study. The TBIMS is a well-established multi-center research initiative with extensive data from individuals with TBI throughout the United States.  Time-to-event is assessed using Cox proportional hazards modeling.
 
+## Notebooks and Scripts
+The provided scripts should be run in the sequential order specified by the file names to ensure the successful execution of the analysis workflow. The scripts are designed to perform the following operations:
+
+1. **Preprocessing (`01_preprocessing.qmd`):** This initial script prepares the dataset for subsequent analyses via data cleaning, handling missing values, and imputing Year 1 values to previous and subsequent observations. To ensure reproducibility of results, request and use the `TBIMS_2023Q2_SPSS` Form 1 and Form 2 files as the raw data input for this script.
+2. **Missing Data Analysis (`02_missing_data_analysis.qmd`):** This script generates exploratory data visualizations and summaries to provide insights into the nature and severity of missing data within the preprocessed dataset.
+3. **Descriptive Tables (`03_generate_descriptive_tables.qmd`):** This script generates descriptive tables that provide summaries of the study sample characteristics with respect to key variables.
+4. **Univariate and Bivariate Plots (`04_generate_univariate_and_bivariate_plots.qmd`):** This script generates univariate and bivariate plots of the covariates of interest. 
+
 ### Tools and Packages
 This project uses the following R packages:
 - [`survival`](https://github.com/therneau/survival)
