@@ -1,0 +1,552 @@
+---
+title: "Missing Data Analysis"
+format: html
+editor: visual
+---
+
+# Install and Load Libraries
+
+```{r Initial Setup and Library Loading, echo=TRUE, eval=FALSE}
+# Load the pacman package (install if necessary)
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+
+# Install and load prerequisite libraries
+pacman::p_load(ComplexUpset, extrafont, ggplotify, here, naniar, scales, tidyverse)
+
+# Create the 'output/plots/univariate_and_bivariate_plots' subdirectory if not already available
+missingness_plots_dir <- here("output", "plots", "missingness")
+if (!dir.exists(missingness_plots_dir)) {
+  dir.create(missingness_plots_dir, recursive = TRUE)
+}
+
+# Import fonts from Font Book
+# font_import()
+loadfonts(device = "all", quiet = TRUE)
+# fonts()  # View all available fonts
+```
+
+# Prepare the Data Frames
+
+```{r Prepare the Data for Missing Data Analysis}
+# Define the covariate sets of interest
+all_proposed_covariates <- c("id", "age", "sex", "education_level_at_injury",
+                             "employment_at_injury", "marital_status_at_injury",
+                             "rehab_payor_primary", "rehab_payor_primary_type",
+                             "cause_of_injury", "drs_total_at_year_1",
+                             "fim_total_at_year_1", "gose_total_at_year_1",
+                             "problematic_substance_use_at_injury", 
+                             "problematic_substance_use_at_year_1", 
+                             "suicide_attempt_hx_lifetime_at_injury", 
+                             "suicide_attempt_hx_past_year_at_injury",
+                             "suicide_attempt_hx_past_year_at_year_1", 
+                             "depression_level_at_year_1")
+
+select_covariates_1 <- c("id", "age", "sex", "education_level_at_injury",
+                         "employment_at_injury", "marital_status_at_injury",
+                         "rehab_payor_primary", "rehab_payor_primary_type",
+                         "cause_of_injury", 
+                         "problematic_substance_use_at_injury", 
+                         "problematic_substance_use_at_year_1",
+                         "suicide_attempt_hx_lifetime_at_injury", 
+                         "suicide_attempt_hx_past_year_at_injury",
+                         "suicide_attempt_hx_past_year_at_year_1", 
+                         "depression_level_at_year_1")
+
+select_covariates_2 <- c("id", "age", "sex", "education_level_at_injury",
+                         "employment_at_injury", "marital_status_at_injury",
+                         "rehab_payor_primary", "rehab_payor_primary_type",
+                         "cause_of_injury", 
+                         "problematic_substance_use_at_injury", 
+                         "problematic_substance_use_at_year_1",
+                         "suicide_attempt_hx_lifetime_at_injury", 
+                         "suicide_attempt_hx_past_year_at_year_1", 
+                         "depression_level_at_year_1")
+
+# Prepare the data frames from the covariate sets of interest
+analytic_all_proposed_covariates <- analytic_data_final |>
+  select(all_of(all_proposed_covariates))
+
+analytic_select_covariates_1 <- analytic_data_final |>
+  select(all_of(select_covariates_1))
+
+analytic_select_covariates_2 <- analytic_data_final |>
+  select(all_of(select_covariates_2))
+
+# Remove the 'id' variable from the full analytic sample data frames to prepare for visualizations
+all_proposed_covariates_for_plots <- select(analytic_all_proposed_covariates, -id)
+select_covariates_1_for_plots <- select(analytic_select_covariates_1, -id)
+select_covariates_2_for_plots <- select(analytic_select_covariates_2, -id)
+```
+
+# Define Custom Preferences
+
+```{r Define a Theme for Customizing Plot Aesthetics}
+customization <- theme(
+  title = element_text(family = "Proxima Nova", face = "bold", size = 20),
+  legend.title = element_text(family = "Proxima Nova", face = "bold", size = 10),
+  legend.text = element_text(family = "Proxima Nova", size = 9.5),
+  axis.title.x = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(t = 10)),
+  axis.title.y = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(r = 10)),
+  axis.text = element_text(family = "Proxima Nova", size = 10),
+  text = element_text(family = "Proxima Nova"),
+  legend.position = "top"
+)
+```
+
+## Define Helper Functions for Plotting Missingness Patterns Using Upset Plots
+
+```{r Define Helper Functions for Plotting Missingness Patterns Using Upset Plots}
+# Define a function to test if the input is NULL
+#' Test if the input is NULL
+#'
+#' @param x object
+#'
+#' @return an error if input (x) is NULL
+#'
+#' @examples
+#' \dontrun{
+#' # success
+#' test_if_null(airquality)
+#' #fail
+#' my_test <- NULL
+#' test_if_null(my_test)
+#' }
+#' @keywords internal
+#' @noRd
+test_if_null <- function(x){
+  if (is.null(x)) {
+    cli::cli_abort(
+      c(
+        "Input must not be NULL",
+        "Input is {.cls {class(x)}}"
+      )
+    )
+  }
+}
+
+# Define a function to test if the input is a data frame
+#' Test if input is a data.frame
+#'
+#' @param x object
+#'
+#' @return an error if input (x) is a data.frame
+#'
+#' @examples
+#' \dontrun{
+#' # success
+#' test_if_dataframe(airquality)
+#' #fail
+#' my_test <- matrix(10)
+#' test_if_dataframe(my_test)
+#' }
+#'
+#' @keywords internal
+#' @noRd
+test_if_dataframe <- function(x){
+  # test for dataframe
+  if (!inherits(x, "data.frame")) {
+    cli::cli_abort(
+      c(
+        "Input must inherit from {.cls data.frame}",
+        "We see class: {.cls {class(x)}}"
+      )
+    )
+  }
+}
+
+# Define custom 'as_shadow_upset' function to maintain preferred variable labels
+#' Convert data into shadow format for doing an upset plot
+#'
+#' Upset plots are a way of visualising common sets, this function transforms
+#'     the data into a format that feeds directly into an upset plot
+#'
+#' @param data a data.frame
+#'
+#' @return a data.frame
+#'
+#' @examples
+#'
+#' \dontrun{
+#'
+#' library(UpSetR)
+#' airquality %>%
+#'   as_shadow_upset() %>%
+#'   upset()
+#' }
+#'
+#' @export
+as_shadow_upset_custom <- function(data, preferred_labels) {
+  test_if_null(data)
+  test_if_dataframe(data)
+
+  if (n_var_miss(data) <= 1) {
+    glu_st <- if (n_var_miss(data) == 1) {
+      glue("upset plots for missing data require at least two variables to have missing data, only one variable, '{miss_var_which(data)}', has missing values.")
+    } else {
+      glue("upset plots for missing data require at least two variables to have missing data, there are no missing values in your data! This is probably a good thing.")
+    }
+    rlang::abort(message = glu_st)
+  }
+
+  data_shadow <- as.data.frame(is.na(data) * 1)
+  colnames(data_shadow) <- sapply(colnames(data), function(x) preferred_labels[x])
+
+  mutate_if(data_shadow, is.numeric, as.integer)
+}
+
+```
+
+```{r Define Custom Functions for Plotting Missingness Patterns Using Upset Plots}
+# Define a function to plot missingness patterns using an upset plot
+#' Plot the pattern of missingness using an upset plot.
+#'
+#' Upset plots are a way of visualising common sets, `gg_miss_upset` shows the
+#'   number of missing values for each of the sets of data. The default option
+#'   of `gg_miss_upset` is taken from `UpSetR::upset` - which is to use up to 5
+#'   sets and up to 40 interactions. We also set the ordering to by the
+#'   frequency of the intersections. Setting `nsets = 5` means to look at 5
+#'   variables and their combinations. The number of combinations or rather
+#'   `intersections` is controlled by `nintersects`. If there are 40
+#'   intersections, there will be 40 combinations of variables explored. The
+#'   number of sets and intersections can be changed by passing arguments `nsets
+#'   = 10` to look at 10 sets of variables, and `nintersects = 50` to look at 50
+#'   intersections.
+#'
+#' @param data data.frame
+#' @param order.by (from UpSetR::upset) How the intersections in the matrix should be ordered by. Options include frequency (entered as "freq"), degree, or both in any order.  See `?UpSetR::upset` for more options
+#' @param ... arguments to pass to upset plot - see `?UpSetR::upset`
+#'
+#' @return a ggplot visualisation of missing data
+#'
+#' @examples
+#'
+#' \dontrun{
+#' gg_miss_upset(airquality)
+#' gg_miss_upset(riskfactors)
+#' gg_miss_upset(riskfactors, nsets = 10)
+#' gg_miss_upset(riskfactors, nsets = 10, nintersects = 10)
+#' }
+#' @export
+gg_miss_upset_custom <- function(data, preferred_labels, order.by = "freq", ...) {
+  data |>
+    as_shadow_upset_custom(preferred_labels = preferred_labels) |>
+    UpSetR::upset(order.by = order.by, ...)
+}
+
+# Define the preferred variable labels for the covariate sets
+all_proposed_covariates_labels <- c(
+  age = "Age at Injury",
+  sex = "Sex",
+  education_level_at_injury = "Educational Attainment at Injury",
+  employment_at_injury = "Employment Status at Injury",
+  marital_status_at_injury = "Marital Status at Injury",
+  rehab_payor_primary = "Primary Rehabilitation Payor",
+  rehab_payor_primary_type = "Medicaid Status",
+  cause_of_injury = "Mechanism of Injury",
+  drs_total_at_year_1 = "DRS Score at Year 1",
+  fim_total_at_year_1 = "FIM Score at Year 1",
+  gose_total_at_year_1 = "GOS-E Score at Year 1",
+  problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+  problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+  suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+  suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+  suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+  depression_level_at_year_1 = "Depression Level at Year 1"
+)
+```
+
+# Missing Data Analysis
+
+```{r Define a Function to Calculate and Store the Number of Missing Values for Each Covariate of Interest}
+prepare_na_counts_df <- function(df) {
+  # Calculate the number of missing values for each covariate
+  na_counts <- sapply(df, function(x) sum(is.na(x)))
+
+  # Store the NA counts for each covariate in a data frame
+  labels_df <- data.frame(
+    variable = names(na_counts),
+    n_missing = na_counts
+  )
+  return(labels_df)
+}
+```
+
+```{r Prepare the NA Counts for Each Covariate Set}
+# Prepare the NA counts for all proposed covariates
+na_counts_for_all_proposed_covariates <- prepare_na_counts_df(all_proposed_covariates_for_plots)
+na_counts_for_select_covariates_1 <- prepare_na_counts_df(select_covariates_1_for_plots)
+na_counts_for_select_covariates_2 <- prepare_na_counts_df(select_covariates_2_for_plots)
+```
+
+# Plot the Number of Missing Values
+
+## Figure 17-1: Count of Missing Values Across All Proposed Covariates
+
+```{r Plot Figure 17-1}
+# Plot the number of missing values across all proposed covariates
+all_proposed_covariates_missing_value_counts_plot <- gg_miss_var(all_proposed_covariates_for_plots) +
+  labs(x = "Covariates",
+       y = "Number of Missing Values"
+  ) +
+  scale_x_discrete(
+    labels = c(
+      age = "Age at Injury",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      drs_total_at_year_1 = "DRS Score at Year 1",
+      fim_total_at_year_1 = "FIM Score at Year 1",
+      gose_total_at_year_1 = "GOS-E Score at Year 1",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) +
+  scale_y_continuous(labels = label_comma()) +
+  theme_classic() +
+  customization +
+  geom_text(
+    data = na_counts_for_all_proposed_covariates,
+    aes(x = variable, y = n_missing, label = scales::comma(n_missing)), # Position and format labels
+    vjust = -1, # Adjust text position
+    hjust = 0.5, # Adjust horizontal position to place text at the end of the bar
+    size = 3.25, # Adjust text size
+    family = "Proxima Nova"
+  )
+
+ggsave(here(missingness_plots_dir, "figure_17-1_all_proposed_covariates_missing_value_counts.png"),
+       all_proposed_covariates_missing_value_counts_plot, dpi = 300)
+```
+
+## Figure 17-2: Count of Missing Values Across All Proposed Covariates Excluding Functional Variables
+
+```{r Plot Figure 17-2}
+# Plot the number of missing values across all covariates excluding functional status scores
+select_covariates_1_missing_value_counts_plot <- gg_miss_var(select_covariates_1_for_plots) +
+  labs(x = "Covariates",
+       y = "Number of Missing Values"
+  ) +
+  scale_x_discrete(
+    labels = c(
+      age = "Age at Injury",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) +
+  scale_y_continuous(labels = label_comma()) +
+  theme_classic() +
+  customization +
+  geom_text(
+    data = na_counts_for_select_covariates_1,
+    aes(x = variable, y = n_missing, label = scales::comma(n_missing)), # Position and format labels
+    vjust = -1, # Adjust text position
+    hjust = 0.5, # Adjust horizontal position to place text at the end of the bar
+    size = 3.25, # Adjust text size
+    family = "Proxima Nova"
+  )
+
+ggsave(here(missingness_plots_dir, "figure_17-2_select_covariates_1_missing_value_counts.png"),
+       select_covariates_1_missing_value_counts_plot, dpi = 300)
+```
+
+## Figure 17-3: Count of Missing Values Across All Proposed Covariates Excluding Functional Variables and Past-Year History of Suicide Attempt at Injury
+
+```{r Plot Figure 17-3}
+# Plot the number of missing values across all covariates excluding functional status scores and past-year history of suicide attempt at injury
+select_covariates_2_missing_value_counts_plot <- gg_miss_var(select_covariates_2_for_plots) +
+  labs(x = "Covariates",
+       y = "Number of Missing Values"
+  ) +
+  scale_x_discrete(
+    labels = c(
+      age = "Age at Injury",
+      sex = "Sex",
+      education_level_at_injury = "Educational Attainment at Injury",
+      employment_at_injury = "Employment Status at Injury",
+      marital_status_at_injury = "Marital Status at Injury",
+      rehab_payor_primary = "Primary Rehabilitation Payor",
+      rehab_payor_primary_type = "Medicaid Status",
+      cause_of_injury = "Mechanism of Injury",
+      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+      depression_level_at_year_1 = "Depression Level at Year 1"
+    )
+  ) +
+  scale_y_continuous(labels = label_comma()) +
+  theme_classic() +
+  customization +
+  geom_text(
+    data = na_counts_for_select_covariates_2,
+    aes(x = variable, y = n_missing, label = scales::comma(n_missing)), # Position and format labels
+    vjust = -1, # Adjust text position
+    hjust = 0.5, # Adjust horizontal position to place text at the end of the bar
+    size = 3.25, # Adjust text size
+    family = "Proxima Nova"
+  )
+
+ggsave(here(missingness_plots_dir, "figure_17-3_select_covariates_2_missing_value_counts.png"),
+       select_covariates_2_missing_value_counts_plot, dpi = 300)
+```
+
+# Plot the Patterns and Intersections of Missing Values
+
+## Figure 18-1:
+
+```{r Plot Figure 18-1}
+# Generate an upset plot of missing values across all proposed covariates
+all_proposed_covariates_missing_patterns_plot <- gg_miss_upset_custom(all_proposed_covariates_for_plots, 
+                                                                      all_proposed_covariates_labels)
+
+# all_proposed_covariates_na_patterns_plot <- gg_miss_upset(all_proposed_covariates_for_plots)
+
+# Convert the plot to a ggplot object
+all_proposed_covariates_missing_patterns_ggplot <- as.ggplot(all_proposed_covariates_missing_patterns_plot)
+  # theme_classic()
+  # customization
+
+all_proposed_covariates_na_patterns_gg_plot <- as.ggplot(all_proposed_covariates_na_patterns_plot)
+
+ggsave(here(missingness_plots_dir, "figure_18-1_all_proposed_covariates_missing_patterns_plot.pdf"),
+       ggplotify::as.ggplot(all_proposed_covariates_missing_patterns_plot), dpi = 300)
+```
+
+```{r}
+
+
+  # # Customize the x-axis ticks to display values in intervals of 500, starting with 0
+  # scale_y_continuous(breaks = seq(0, max(sum(is.na(all_proposed_covariates)), na.rm = TRUE), by = 500))
+
+# # Display missingness by 'DCIQuintile'
+# ic_sample_all_vars_select_covariates %>%
+#   gg_miss_var(show_pct = TRUE, facet = IntStatus)
+# 
+# missing_counts_analytic_select_covariates <- colSums(is.na(analytic_select_covariates_plots))
+# 
+# # Order the counts in descending order
+# ordered_missing_counts_analytic_select_covariates <- missing_counts[order(-missing_counts_analytic_select_covariates)]
+# 
+# # Print the ordered missing counts for each variable
+# print(ordered_missing_counts_analytic_select_covariates)
+
+# Plot the number of missings for all covariates
+analytic_na_counts_all_covariates <- gg_miss_var(analytic_all_covariates_plots) +
+  labs(x = "Baseline Covariates") +
+  scale_x_discrete(
+    labels = c(
+      DCIQuintile = "DCI Quintile",
+      AGE = "Age at Injury",
+      SexF = "Sex",
+      Race = "Race/Ethnicity",
+      EDUCATION = "Educational Attainment",
+      EMPLOYMENT = "Employment Status",
+      Mar = "Marital Status",
+      ResDis = "Place of Residence at Discharge",
+      RURALdc = "Urbanization at Discharge",
+      RehabPay1 = "Primary Rehabilitation Payor",
+      SCI = "Comorbid Spinal Cord Injury",
+      Cause = "Mechanism of Injury",
+      PROBLEMUse = "Substance Problem Use",
+      DAYStoREHABdc = "Rehabilitation Length of Stay",
+      FIMMOTD = "FIM Motor at Discharge",
+      FIMCOGD = "FIM Cognitive at Discharge"
+    )
+  ) + 
+  
+  # Customize the x-axis ticks to display values in intervals of 25, starting with 0
+  scale_y_continuous(breaks = seq(0, max(sum(is.na(analytic_select_covariates_plots)), na.rm = TRUE), by = 50))
+
+# missing_counts_analytic_all_covariates <- colSums(is.na(analytic_all_covariates_plots))
+# 
+# # Order the counts in descending order
+# ordered_missing_counts_analytic_all_covariates <- missing_counts_analytic_all_covariates[order(-missing_counts_analytic_all_covariates)]
+# 
+# # Print the ordered missing counts for each variable
+# print(ordered_missing_counts_analytic_all_covariates)
+
+
+gg_miss_var(analytic_sample)
+
+# gg_miss_var(analytic_sample_select_covariates, show_pct = TRUE)
+
+
+analytic_na_patterns <- gg_miss_upset(
+  analytic_sample_select_covariates,
+  # nsets = 10,
+  nintersects = NA)
+
+ic_na_patterns <- gg_miss_upset(ic_sample_select_covariates)
+
+gg_miss_upset_plot_analytic_select_covariates <- gg_miss_upset(analytic_sample_select_covariates)
+
+# # Customizing labels
+# gg_miss_upset_plot_analytic_select_covariates <- gg_miss_upset_plot_analytic_select_covariates +
+#   scale_x_discrete(labels = c(
+#     EDUCATION = "Education",
+#     FIMMOTD = "FIM Motor at Discharge",
+#     RURALdc = "Urban-Rural Classification",
+#     DCIQuintile = "DCI Quintile",
+#     PROBLEMUse = "Problematic Substance Use"
+#   ))
+# 
+# print(gg_miss_upset_plot_analytic_select_covariates)
+# 
+# 
+# gg_miss_upset(analytic_sample_covariates) +
+#   labs(
+#     title = "Plot of Missing Data Patterns", 
+#     subtitle = "Intersection of missing values across covariates", 
+#     x = "Covariates", 
+#     y = "Number of Missing Values", 
+#     caption = "Source: Your Dataset"
+#   ) +
+#   scale_x_discrete(labels = c("EDUCATION_NA" = "Educational Attainment", "FIMMOTD_NA" = "FIM Motor at Discharge", "RURALdc_NA" = "Urbanicity at Discharge", "DCIQuintile_NA" = "DCI Quintile", "PROBLEMuse_NA" = "Problematic Substance Use")) +
+#   theme(
+#     plot.title = element_text(face = "bold", size = 14),
+#     plot.subtitle = element_text(face = "italic", size = 12),
+#     plot.caption = element_text(size = 8)
+#   )
+# 
+# # Extract the data from the 'upset' object, assuming 'plot' is your upset object
+# upset_data <- as.data.frame(plot)
+# 
+# # Use ggplot2 to create a new plot with the upset data
+# ggplot(upset_data, aes(x = variable, y = value)) +
+#   geom_bar(stat = "identity") +
+#   labs(
+#     title = "Plot of Missing Data Patterns",
+#     subtitle = "A subtitle here",
+#     x = "Variable",
+#     y = "Number of Missing Values",
+#     caption = "Source: Your Dataset"
+#   ) +
+#   theme_minimal()
+# 
+# 
+# gg_miss_upset(analytic_sample_covariates, nsets = 8, nintersects = 10)
+# 
+# count_na_problem_use_only <- analytic_sample_covariates %>%
+#   filter(is.na(PROBLEMUse) & rowSums(is.na(.)) == 1) %>%
+#   nrow()
+```
