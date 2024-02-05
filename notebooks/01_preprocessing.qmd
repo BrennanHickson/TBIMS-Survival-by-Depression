@@ -1,6 +1,6 @@
 ---
 title: "Preprocessing"
-author: "Brennan"
+author: "Brennan Hickson"
 format: html
 editor: visual
 ---
@@ -1171,103 +1171,6 @@ analytic_data_depression <- calculate_depression_level(analytic_data)
 <!-- 5. **Imputing Missing Values:** The function identifies the Year 1 variables that require imputation and then imputes these missing values via the "down-up" procedure within each group of the same 'id'. In other words, it fills missing values with the nearest non-missing value from the observation either below (down) or above (up) in the same 'id' group. -->
 <!-- 6. **Output:** The final output of this function is the original dataset with the clearly marked Year 1 data and corresponding imputed missing values. -->
 
-```{r Define a Function to Extract the Year 1 Variables of Interest from the Follow-Up Data and Impute the Values Forward and Backward, include=FALSE}
-#' Extract and Impute Year 1 Data
-#'
-#' This function processes a dataset to extract Year 1 data, rename variables, 
-#' join the data back to the original dataset, and then impute missing values.
-#'
-#' @param data A data frame containing the dataset to be processed.
-#' 
-#' @return A data frame with Year 1 data extracted, renamed, and missing values imputed.
-#'
-#' @details 
-#' The function performs several steps:
-#' 1. Filters the dataset for data collection period 1.
-#' 2. Selects specific variables collected at Year 1.
-#' 3. Renames these variables to reflect their Year 1 timing.
-#' 4. Joins the extracted Year 1 data back to the original dataset.
-#' 5. Imputes missing values in Year 1 variables.
-#' 
-#' @examples
-#' # Assuming `my_dataset` is your dataset
-#' result <- extract_and_impute_year_1_data(my_dataset)
-#'
-#' @export
-# extract_and_impute_year_1_data <- function(data) {
-#   # Initialize new variables only if absent from the data frame
-#   new_vars <- c("drs_total_at_year_1", "fim_total_at_year_1", "gose_total_at_year_1",
-#                 "problematic_substance_use_at_year_1", "suicide_attempt_hx_past_year_at_year_1",
-#                 "cardinal_symptoms_at_year_1", "positive_symptoms_at_year_1", "depression_level_at_year_1")
-# 
-#   for (var in new_vars) {
-#     if (!var %in% names(data)) {
-#       data[[var]] <- NA
-#     }
-#   }
-#   
-#   # Extract and rename the Year 1 data for the new variables
-#   year_1_data <- data |>
-#     filter(data_collection_period == 1) |>
-#     select(id,
-#            drs_total_at_followup, 
-#            fim_total_at_followup,
-#            gose_total_at_followup,
-#            problematic_substance_use_at_followup,
-#            suicide_attempt_hx_past_year_at_followup) |>
-#            # cardinal_symptoms_at_year_1,
-#            # positive_symptoms_at_year_1,
-#            # depression_level_at_year_1) |>
-#     rename(drs_total_at_year_1 = drs_total_at_followup,
-#            fim_total_at_year_1 = fim_total_at_followup,
-#            gose_total_at_year_1 = gose_total_at_followup,
-#            problematic_substance_use_at_year_1 = problematic_substance_use_at_followup,
-#            suicide_attempt_hx_past_year_at_year_1 = suicide_attempt_hx_past_year_at_followup)
-# 
-#   # Rejoin the Year 1 data with the original dataset
-#   data_with_year_1_vars <- data |>
-#     left_join(year_1_data, by = "id")
-#   
-#   # # Identify columns with "_y1" suffix and their corresponding original columns
-#   # y1_cols <- names(data_with_year_1_vars)[grepl("_y1$", names(data_with_year_1_vars))]
-#   # original_cols <- sub("_y1$", "", y1_cols)
-#   # 
-#   # # Update original columns with Year 1 data and remove "_y1" columns
-#   # for (i in seq_along(y1_cols)) {
-#   #   data_with_year_1_vars <- data_with_year_1_vars |>
-#   #     mutate(!!original_cols[i] := coalesce(!!sym(y1_cols[i]), !!sym(original_cols[i]))) |>
-#   #     select(-!!sym(y1_cols[i]))
-#   # }
-# 
-#   # Define the variables to be imputed/filled
-#   year_1_vars_to_impute <- c("drs_total_at_year_1",
-#                              "fim_total_at_year_1",
-#                              "gose_total_at_year_1",
-#                              "problematic_substance_use_at_year_1",
-#                              "suicide_attempt_hx_past_year_at_year_1",
-#                              "cardinal_symptoms_at_year_1",
-#                              "positive_symptoms_at_year_1",
-#                              "depression_level_at_year_1")
-#   
-#   # Impute the values for each participant
-#   imputed_data <- data_with_year_1_vars |>
-#     group_by(id) |>
-#     fill(!!!syms(year_1_vars_to_impute), .direction = "downup") |>
-#     ungroup()
-# 
-#   return(imputed_data)
-# }
-# 
-# # Extract and impute the Year 1 problematic substance use and past-year suicide attempt data for the analytic sample
-# analytic_data_depression_imputed <- extract_and_impute_year_1_data(analytic_data_depression)
-# 
-# # Save the 'analytic_data' data frame in a single .rds file
-# saveRDS(analytic_data, here(data_processed_dir, "analytic_data.rds"))
-# 
-# # Save the 'analytic_data' data frame as a CSV file in the 'data/processed' subdirectory
-# write.csv(analytic_data, file.path(data_processed_dir, "analytic_data.csv"), row.names = FALSE)
-```
-
 ```{r Define a Function to Extract the Year 1 Variables of Interest and Impute the Values to Previous and Subsequent Observations}
 #' Extract and Impute Year 1 Data
 #'
@@ -1287,8 +1190,8 @@ analytic_data_depression <- calculate_depression_level(analytic_data)
 #' 5. Imputes missing values in Year 1 variables.
 #' 
 #' @examples
-#' # Assuming `my_dataset` is your dataset
-#' result <- extract_and_impute_year_1_data(my_dataset)
+#' # Assuming `dataset` is the dataset to be imputed
+#' result <- extract_and_impute_year_1_data(dataset)
 #'
 #' @export
 extract_and_impute_year_1_data <- function(data) {
@@ -1319,20 +1222,34 @@ extract_and_impute_year_1_data <- function(data) {
     return(imputed_data)
 }
 
-# Extract and impute the Year 1 problematic substance use and past-year suicide attempt data for the analytic sample
+# Extract and impute the Year 1 variables of interest for the analytic sample
 analytic_data_imputed <- extract_and_impute_year_1_data(analytic_data_depression)
 ```
 
-```{r Select and Arrange the Final Data Columns in the Final Analytic Sample Data Frame}
-# Select and reorder merged data columns
-analytic_data_imputed <- analytic_data_imputed |>
+```{r Convert the Units of the Time-to-Event Variables from Days to Years Select and Arrange the Columns in the Imputed Analytic Sample Data Frame}
+# Convert 'time_to_event', "time_to_censorship", and "time_to_death" from days to years
+analytic_data_imputed <- analytic_data_imputed %>%
+  mutate(
+    time_to_event_in_years = time_to_event / 365.25,
+    time_to_censorship_in_years = time_to_censorship / 365.25,
+    time_to_expiration_in_years = time_to_expiration / 365.25,
+    # Calculate age at censorship by subtracting 'date_of_birth' from 'date_of_followup'
+    age_at_censorship = interval(start = date_of_birth, end = date_of_followup) / years(1),
+    # Calculate age at death by subtracting 'date_of_birth' from 'date_of_death'
+    age_at_expiration = interval(start = date_of_birth, end = date_of_death) / years(1)
+  ) |>
+  # Select and reorder data columns
   select(
     id, data_collection_period,
     status_at_followup, event_status, 
-    time_to_event, time_to_censorship,
-    time_to_expiration, date_of_followup,
+    time_to_event_in_years,
+    time_to_censorship_in_years,
+    time_to_expiration_in_years,
+    date_of_followup,
     date_of_death, date_of_birth,
-    date_of_injury, sex, age, cause_of_injury,
+    date_of_injury, sex, age,
+    age_at_censorship, age_at_expiration,
+    cause_of_injury,
     marital_status_at_injury,
     education_level_at_injury,
     employment_at_injury,
@@ -1359,11 +1276,54 @@ analytic_data_imputed <- analytic_data_imputed |>
     ) |>
   arrange(id, data_collection_period)
 
-# Save the 'analytic_data' data frame in a single .rds file
+# Save the 'analytic_data_imputed' data frame in a single .rds file
 saveRDS(analytic_data_imputed, here(data_processed_dir, "analytic_data_imputed.rds"))
 
-# Save the 'analytic_data' data frame as a CSV file in the 'data/processed' subdirectory
+# Save the 'analytic_data_imputed' data frame as a CSV file in the 'data/processed' subdirectory
 write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_imputed.csv"), row.names = FALSE)
+```
+
+```{r Select and Arrange the Columns in the Imputed Analytic Sample Data Frame}
+# # Select and reorder data columns
+# analytic_data_imputed <- analytic_data_imputed |>
+#   select(
+#     id, data_collection_period,
+#     status_at_followup, event_status, 
+#     time_to_event_years, time_to_censorship_years,
+#     time_to_expiration_years, date_of_followup,
+#     date_of_death, date_of_birth,
+#     date_of_injury, sex, age, cause_of_injury,
+#     marital_status_at_injury,
+#     education_level_at_injury,
+#     employment_at_injury,
+#     rehab_payor_primary,
+#     rehab_payor_primary_type,
+#     problematic_substance_use_at_injury,
+#     problematic_substance_use_at_year_1,
+#     problematic_substance_use_at_followup,
+#     drs_total_at_followup,
+#     fim_total_at_followup,
+#     gose_total_at_followup,
+#     drs_total_at_year_1,
+#     fim_total_at_year_1,
+#     gose_total_at_year_1,
+#     func_score_at_year_1,
+#     suicide_attempt_hx_lifetime_at_injury,
+#     suicide_attempt_hx_past_year_at_injury,
+#     suicide_attempt_hx_past_year_at_year_1,
+#     suicide_attempt_hx_past_year_at_followup,
+#     phq1, phq2, phq3, phq4, phq5, phq6, phq7, phq8, phq9,
+#     positive_symptoms_at_year_1,
+#     cardinal_symptoms_at_year_1,
+#     depression_level_at_year_1
+#     ) |>
+#   arrange(id, data_collection_period)
+# 
+# # Save the 'analytic_data_imputed' data frame in a single .rds file
+# saveRDS(analytic_data_imputed, here(data_processed_dir, "analytic_data_imputed.rds"))
+# 
+# # Save the 'analytic_data_imputed' data frame as a CSV file in the 'data/processed' subdirectory
+# write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_imputed.csv"), row.names = FALSE)
 ```
 
 ## Create a Sample Data Frame
@@ -1384,22 +1344,22 @@ sampled_analytic_data <- analytic_data_imputed |>
   select(-date_of_birth, -age, -status_at_followup) |>
   arrange(id, data_collection_period)
 
-# Write the sampled data frame to a CSV file
+# Save the 'sampled_analytic_data' data frame as a CSV file in the '~/Downloads' directory
 write.csv(sampled_analytic_data, file = "~/Downloads/sampled_analytic_data.csv", row.names = FALSE)
 ```
 
-```{r Retain Only Final Observation Per Participant}
-# Retain only the last observation for each unique 'id' based on the maximum 'time_to_event'
+```{r Retain Only the Last Valid Observation Per Participant}
+# Retain only the last observation for each unique 'id' based on the maximum 'time_to_event' value
 analytic_data_final <- analytic_data_imputed |>
-  arrange(id, time_to_event) |>
+  arrange(id, time_to_event_in_years) |>
   group_by(id) |>
   slice(n()) |>
   ungroup()
 
-# Save the 'analytic_data' data frame in a single .rds file
+# Save the 'analytic_data_final' data frame in a single .rds file
 saveRDS(analytic_data_final, here(data_processed_dir, "analytic_data_final.rds"))
 
-# Save the 'analytic_data' data frame as a CSV file in the 'data/processed' subdirectory
+# Save the 'analytic_data_final' data frame as a CSV file in the 'data/processed' subdirectory
 write.csv(analytic_data_final, file.path(data_processed_dir, "analytic_data_final.csv"), row.names = FALSE)
 ```
 
@@ -1419,6 +1379,6 @@ sampled_analytic_data_final <- analytic_data_final |>
   select(-date_of_birth, -age, -status_at_followup) |>
   arrange(id, data_collection_period)
 
-# Write the sampled data frame to a CSV file
+# Save the 'sampled_analytic_data_final' data frame to a CSV file in the '~/Downloads' directory
 write.csv(sampled_analytic_data_final, file = "~/Downloads/sampled_analytic_data_final.csv", row.names = FALSE)
 ```

@@ -27,8 +27,8 @@ loadfonts(device = "all", quiet = TRUE)
 ```
 
 ```{r Check raw problematic substance use values}
-merged_psu_at_injury <- merged_data |>
-  filter(data_collection_period == 0, !is.na(problematic_substance_use_at_injury))
+# merged_psu_at_injury <- merged_data |>
+#   filter(data_collection_period == 0, !is.na(problematic_substance_use_at_injury))
 ```
 
 # Prepare Covariate Sets for Table 1
