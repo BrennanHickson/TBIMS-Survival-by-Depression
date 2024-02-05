@@ -39,6 +39,6 @@ docs
 !/notebooks/
 /notebooks/*
 !/notebooks/01_preprocessing.qmd
-!/notebooks/02_missing_data_analysis.qmd
+!/notebooks/02_exploratory_data_analysis.qmd
 !/notebooks/03_generate_descriptive_tables.qmd
 !/notebooks/04_generate_univariate_and_bivariate_plots.qmd
