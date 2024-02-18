@@ -37,7 +37,7 @@ if (!dir.exists(data_processed_dir)) {
 # Define the study period start and end dates
 observation_period_start_date <- as.Date("2006-10-01")
 observation_period_end_date <- as.Date("2012-10-01")
-study_end_date <- as.Date("2022-10-01")
+# study_end_date <- as.Date("2022-10-01")
 ```
 
 ```{r Define a function to import the data}
@@ -190,9 +190,13 @@ baseline_name_and_na_mappings <- list(
   education_level_at_injury = list(original_name = "EduYears", na_values = c(21, 666, 999), to_class = "numeric"),
   employment_at_injury = list(original_name = "EMPLOYMENT", na_values = c(888, 999), to_class = "factor"),
   rehab_payor_primary = list(original_name = "RehabPay1", na_values = c(888, 999), to_class = "factor"),
-  problematic_substance_use_at_injury = list(original_name = "PROBLEMUse", na_values = c(77, 99), to_class = "factor"),
-  suicide_attempt_hx_lifetime_at_injury = list(original_name = "Suicide", na_values = c(66, 77, 88, 99), to_class = "factor"),
-  suicide_attempt_hx_past_year_at_injury = list(original_name = "SuicidePrior", na_values = c(66, 77, 88, 99), to_class = "factor")
+  problematic_substance_use_at_injury = list(original_name = "PROBLEMUse", na_values = 99, to_class = "factor"),
+  mental_health_tx_lifetime_at_injury = list(original_name = "MntlEver", na_values = c(66, 99), to_class = "factor"),
+  mental_health_tx_past_year_at_injury = list(original_name = "MntlPrior", na_values = c(66, 99), to_class = "factor"),
+  psych_hosp_hx_lifetime_at_injury = list(original_name = "PsyHosp", na_values = c(66, 99), to_class = "factor"),
+  psych_hosp_hx_past_year_at_injury = list(original_name = "PsyHospPrior", na_values = c(66, 99), to_class = "factor"),
+  suicide_attempt_hx_lifetime_at_injury = list(original_name = "Suicide", na_values = c(66, 99), to_class = "factor"),
+  suicide_attempt_hx_past_year_at_injury = list(original_name = "SuicidePrior", na_values = c(66, 99), to_class = "factor")
   )
 
 # Variable name and NA mappings for follow-up data
@@ -205,8 +209,9 @@ followup_name_and_na_mappings <- list(
   drs_total_at_followup = list(original_name = "DRSF", na_values = 999, to_class = "numeric"),
   fim_total_at_followup = list(original_name = "FIMTOTF", na_values = 9999, to_class = "numeric"),
   gose_total_at_followup = list(original_name = "GOSEF", na_values = c(66, 99), to_class = "numeric"),
-  problematic_substance_use_at_followup = list(original_name = "PROBLEMUseF", na_values = c(77, 99), to_class = "factor"),
-  suicide_attempt_hx_past_year_at_followup = list(original_name = "SuicideF", na_values = c(66, 77, 88, 99), to_class = "factor"),
+  problematic_substance_use_at_followup = list(original_name = "PROBLEMUseF", na_values = 99, to_class = "factor"),
+  # psych_hosp_hx_past_year_at_followup = list(original_name = "PsyHospF", na_values = c(0, 6, 9), to_class = "factor"),
+  suicide_attempt_hx_past_year_at_followup = list(original_name = "SuicideF", na_values = c(66, 88, 99), to_class = "factor"),
   phq1 = list(original_name = "PHQPleasureF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
   phq2 = list(original_name = "PHQDownF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
   phq3 = list(original_name = "PHQSleepF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
@@ -434,45 +439,113 @@ merged_data <- merged_data |>
     
     # Set 'No' as the reference group for the problematic substance use at time of injury covariate
     problematic_substance_use_at_injury = fct_recode(problematic_substance_use_at_injury,
-                                           No = "0",
-                                           Yes = "1"
-                                           ) |>
-      fct_relevel("No", "Yes"),
+                                                     No = "0",
+                                                     Yes = "1",
+                                                     Refused = "77"
+                                                     ) |>
+      fct_relevel("No", "Yes", "Refused"),
     
     # Set 'No' as the reference group for the problematic substance use at follow-up covariate
     problematic_substance_use_at_followup = fct_recode(problematic_substance_use_at_followup,
-                                            No = "0",
-                                            Yes = "1"
-                                            ) |>
-      fct_relevel("No", "Yes"),
+                                                       No = "0",
+                                                       Yes = "1",
+                                                       Refused = "77"
+                                                       ) |>
+      fct_relevel("No", "Yes", "Refused"),
     
-    # Set 'No' as the reference group for the lifetime hx of suicide attempt at time of injury covariate
+    # Set 'No' as the reference group for the lifetime hx of mental health treatment at time of injury covariate
+    mental_health_tx_lifetime_at_injury = fct_recode(mental_health_tx_lifetime_at_injury,
+                                                     No = "0",
+                                                     Yes = "1",
+                                                     Refused = "77"
+                                                     # "Not Applicable" = "88"  # '88' code not present in current dataset
+                                                     ) |>
+      # fct_collapse(
+      #   No = c("No", "Not Applicable"),
+      #   Yes = "Yes",
+      #   Refused = "Refused"
+      #   ) |>
+      fct_relevel("No", "Yes", "Refused"),
+      
+    # Set 'No' as the reference group for the past-year hx of mental health treatment at time of injury covariate
+    mental_health_tx_past_year_at_injury = fct_recode(mental_health_tx_past_year_at_injury,
+                                                      No = "0",
+                                                      Yes = "1",
+                                                      Refused = "77",
+                                                      "Not Applicable" = "88"  # '88' code not present in current dataset
+                                                      ) |>
+      fct_collapse(
+        No = c("No", "Not Applicable"),
+        Yes = "Yes",
+        Refused = "Refused"
+        ) |>
+      fct_relevel("No", "Yes", "Refused"),
+    
+    # Set 'No' as the reference group for the lifetime hx of psychiatric hospitalization at time of injury covariate
+    psych_hosp_hx_lifetime_at_injury = fct_recode(psych_hosp_hx_lifetime_at_injury,
+                                                  No = "0",
+                                                  Yes = "1",
+                                                  Refused = "77",
+                                                  "Not Applicable" = "88"  # '88' code not present in current dataset
+                                                  ) |>
+      fct_collapse(
+        No = c("No", "Not Applicable"),
+        Yes = "Yes",
+        Refused = "Refused"
+        ) |>
+      fct_relevel("No", "Yes", "Refused"),
+    
+    # Set 'No' as the reference group for the past-year hx of psychiatric hospitalization at time of injury covariate
+    psych_hosp_hx_past_year_at_injury = fct_recode(psych_hosp_hx_past_year_at_injury,
+                                                   No = "0",
+                                                   Yes = "1",
+                                                   Refused = "77",
+                                                   "Not Applicable" = "88"  # '88' code not present in current dataset
+                                                   ) |>
+      fct_collapse(
+        No = c("No", "Not Applicable"),
+        Yes = "Yes",
+        Refused = "Refused"
+        ) |>
+      fct_relevel("No", "Yes", "Refused"),
+    
+    # # Set 'No' as the reference group for the past-year hx of psychiatric hospitalization at follow-up covariate
+    # psych_hosp_hx_past_year_at_followup = fct_recode(psych_hosp_hx_past_year_at_followup,
+    #                                                No = "1",
+    #                                                Yes = "2",
+    #                                                Refused = "7"
+    #                                                ) |>
+    #   fct_relevel("No", "Yes", "Refused"),
+
+    # Set 'No' as the reference group for the past-year hx of suicide attempt at time of injury covariate
     suicide_attempt_hx_lifetime_at_injury = fct_recode(suicide_attempt_hx_lifetime_at_injury,
-                                             No = "0",
-                                             Yes = "1"
-                                             ) |>
-      fct_relevel("No", "Yes"),
+                                              No = "0",
+                                              Yes = "1",
+                                              Refused = "77"
+                                              ) |>
+      fct_relevel("No", "Yes", "Refused"),
     
     # Set 'No' as the reference group for the past-year hx of suicide attempt at time of injury covariate
     suicide_attempt_hx_past_year_at_injury = fct_recode(suicide_attempt_hx_past_year_at_injury,
                                               No = "0",
-                                              Yes = "1"
+                                              Yes = "1",
+                                              Refused = "77",
+                                              "Not Applicable" = "88"
                                               ) |>
-      fct_relevel("No", "Yes"),
+      fct_collapse(
+        No = c("No", "Not Applicable"),
+        Yes = "Yes",
+        Refused = "Refused"
+        ) |>
+      fct_relevel("No", "Yes", "Refused"),
     
     # Set 'No' as the reference group for the past-year hx of suicide attempt at follow-up covariate
     suicide_attempt_hx_past_year_at_followup = fct_recode(suicide_attempt_hx_past_year_at_followup,
-                                              No = "0",
-                                              Yes = "1"
-                                              ) |>
-      fct_relevel("No", "Yes")
-    
-    # # Set 'No' as the reference group for the past-year hx of suicide attempt covariate
-    # suicide_attempt_hx_past_year = fct_recode(suicide_attempt_hx_past_year,
-    #                                           No = "0",
-    #                                           Yes = "1"
-    #                                           ) |>
-    #   fct_relevel("No", "Yes")
+                                                          No = "0",
+                                                          Yes = "1",
+                                                          Refused = "77"
+                                                          ) |>
+      fct_relevel("No", "Yes", "Refused"),
   ) |>
   
   droplevels()  # Drop unused factor levels
@@ -488,6 +561,10 @@ baseline_vars <- c(
   "employment_at_injury", "rehab_payor_primary",
   "rehab_payor_primary_type",
   "problematic_substance_use_at_injury",
+  "mental_health_tx_lifetime_at_injury",
+  "mental_health_tx_past_year_at_injury",
+  "psych_hosp_hx_lifetime_at_injury",
+  "psych_hosp_hx_past_year_at_injury",
   "suicide_attempt_hx_lifetime_at_injury",
   "suicide_attempt_hx_past_year_at_injury"
 )
@@ -634,18 +711,21 @@ The following function is designed to process the relevant Year 1 variables from
 # Select and reorder merged data columns
 merged_data <- merged_data |>
   select(
-    id, data_collection_period,
+    id,
+    data_collection_period,
     status_at_followup,
-    date_of_followup, date_of_death,
-    date_of_birth, date_of_injury,
-    sex, age, cause_of_injury,
+    date_of_followup,
+    date_of_death,
+    date_of_birth,
+    date_of_injury,
+    sex,
+    age,
+    cause_of_injury,
     marital_status_at_injury,
     education_level_at_injury,
     employment_at_injury,
     rehab_payor_primary,
     rehab_payor_primary_type,
-    problematic_substance_use_at_injury,
-    problematic_substance_use_at_followup,
     drs_total_at_followup,
     fim_total_at_followup,
     gose_total_at_followup,
@@ -653,6 +733,12 @@ merged_data <- merged_data |>
     fim_total_at_year_1,
     gose_total_at_year_1,
     func_score_at_year_1,
+    mental_health_tx_lifetime_at_injury,
+    mental_health_tx_past_year_at_injury,
+    psych_hosp_hx_lifetime_at_injury,
+    psych_hosp_hx_past_year_at_injury,
+    problematic_substance_use_at_injury,
+    problematic_substance_use_at_followup,
     suicide_attempt_hx_lifetime_at_injury,
     suicide_attempt_hx_past_year_at_injury,
     suicide_attempt_hx_past_year_at_followup,
@@ -755,9 +841,15 @@ log_removed_ids <- function(original_data, filtered_data, criterion_number, base
 
 ### Helper Functions
 
-```{r Define a Helper Function to Verify Whether a Specified Date Falls within the Study Period}
-# Define a function to verify whether a specified date falls within the study period
-is_within_study_period <- function(date) {
+```{r Define a Helper Function to Dynamically Calculate Each Participant's End Date}
+# # Define a function to verify whether a specified date falls within the study period
+# is_within_study_period <- function(date) {
+#   !is.na(date) & date >= observation_period_start_date & date <= study_end_date
+# }
+
+# Define a function to dynamically calculate each participant's end date
+is_within_study_period <- function(injury_date, date) {
+  study_end_date <- injury_date + years(10)
   !is.na(date) & date >= observation_period_start_date & date <= study_end_date
 }
 ```
@@ -840,7 +932,7 @@ This section of the function calculates two important pieces of information for 
   
 Based on the data collection period and the flags set previously, the function determines which observations to include in the returned data frame. Event status is then determined based on the availability of valid date data in the `date_of_death` column (in which case, `event_status` = 1); if the column contains NA, then `event_status` is set to 0. Each participant's time to event (i.e., time to censorship or time to death) is then calculated
 
-```{r Define a Function to Apply Study Eligibility Criterion 1 (Inclusion): Injured between October 1, 2006 and October 1, 2012}
+```{r Define a Function to Apply Study Eligibility Criterion 1 (Inclusion): Injured between October 1, 2006 and October 1, 2012 with Follow-Up for Up to 10 Years Post-Injury}
 #' Apply Study Eligibility Criterion 1
 #'
 #' This function applies a specified study eligibility criterion (Criterion 1) to filter 
@@ -864,9 +956,12 @@ apply_criterion_1 <- function(data, observation_period_start_date, observation_p
     arrange(id, date_of_followup, date_of_death) |>
     group_by(id) |>
     mutate(
-      valid_followup = is_within_study_period(date_of_followup) | is_within_study_period(date_of_death),
+      study_end_date = date_of_injury + years(10),
+      valid_followup = is_within_study_period(date_of_injury, date_of_followup) | is_within_study_period(date_of_injury, date_of_death),
       special_case = status_at_followup %in% c("Lost", "Refused", "Incarcerated", "Withdrew", "No Funding"),
-      include_observation = if_else(data_collection_period == 0, TRUE, valid_followup | (special_case & lead(valid_followup, default = TRUE)))
+      include_observation = if_else(data_collection_period == 0, TRUE, valid_followup | (special_case & lead(valid_followup, default = TRUE))),
+      calendar_year_of_event = if_else(!is.na(date_of_death), year(date_of_death),
+                                       if_else(!is.na(date_of_followup), year(date_of_followup), NA_integer_))
     ) |>
     filter(include_observation) |>
     mutate(
@@ -881,7 +976,7 @@ apply_criterion_1 <- function(data, observation_period_start_date, observation_p
     ungroup() |>
     select(id, data_collection_period, status_at_followup, event_status,
            time_to_event, time_to_censorship, time_to_expiration,
-           date_of_followup, date_of_death, everything()) |>
+           calendar_year_of_event, date_of_followup, date_of_death, study_end_date, everything()) |>
     select(-valid_followup, -special_case, -include_observation) |>
     arrange(id, data_collection_period)
   
@@ -1227,8 +1322,8 @@ analytic_data_imputed <- extract_and_impute_year_1_data(analytic_data_depression
 ```
 
 ```{r Convert the Units of the Time-to-Event Variables from Days to Years Select and Arrange the Columns in the Imputed Analytic Sample Data Frame}
-# Convert 'time_to_event', "time_to_censorship", and "time_to_death" from days to years
-analytic_data_imputed <- analytic_data_imputed %>%
+# Convert 'time_to_event', 'time_to_censorship', and 'time_to_expiration' from days to years
+analytic_data_imputed <- analytic_data_imputed |>
   mutate(
     time_to_event_in_years = time_to_event / 365.25,
     time_to_censorship_in_years = time_to_censorship / 365.25,
@@ -1240,24 +1335,31 @@ analytic_data_imputed <- analytic_data_imputed %>%
   ) |>
   # Select and reorder data columns
   select(
-    id, data_collection_period,
-    status_at_followup, event_status, 
+    id,
+    data_collection_period,
+    status_at_followup,
+    event_status,
+    time_to_event,
+    time_to_censorship,
+    time_to_expiration,
     time_to_event_in_years,
     time_to_censorship_in_years,
     time_to_expiration_in_years,
+    calendar_year_of_event,
     date_of_followup,
-    date_of_death, date_of_birth,
-    date_of_injury, sex, age,
-    age_at_censorship, age_at_expiration,
-    cause_of_injury,
-    marital_status_at_injury,
+    date_of_death,
+    date_of_birth,
+    date_of_injury,
+    sex, 
+    age,
+    age_at_censorship, 
+    age_at_expiration,
     education_level_at_injury,
     employment_at_injury,
+    marital_status_at_injury,
+    cause_of_injury,
     rehab_payor_primary,
     rehab_payor_primary_type,
-    problematic_substance_use_at_injury,
-    problematic_substance_use_at_year_1,
-    problematic_substance_use_at_followup,
     drs_total_at_followup,
     fim_total_at_followup,
     gose_total_at_followup,
@@ -1265,6 +1367,13 @@ analytic_data_imputed <- analytic_data_imputed %>%
     fim_total_at_year_1,
     gose_total_at_year_1,
     func_score_at_year_1,
+    mental_health_tx_lifetime_at_injury,
+    mental_health_tx_past_year_at_injury,
+    psych_hosp_hx_lifetime_at_injury,
+    psych_hosp_hx_past_year_at_injury,
+    problematic_substance_use_at_injury,
+    problematic_substance_use_at_year_1,
+    problematic_substance_use_at_followup,
     suicide_attempt_hx_lifetime_at_injury,
     suicide_attempt_hx_past_year_at_injury,
     suicide_attempt_hx_past_year_at_year_1,
@@ -1281,49 +1390,6 @@ saveRDS(analytic_data_imputed, here(data_processed_dir, "analytic_data_imputed.r
 
 # Save the 'analytic_data_imputed' data frame as a CSV file in the 'data/processed' subdirectory
 write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_imputed.csv"), row.names = FALSE)
-```
-
-```{r Select and Arrange the Columns in the Imputed Analytic Sample Data Frame}
-# # Select and reorder data columns
-# analytic_data_imputed <- analytic_data_imputed |>
-#   select(
-#     id, data_collection_period,
-#     status_at_followup, event_status, 
-#     time_to_event_years, time_to_censorship_years,
-#     time_to_expiration_years, date_of_followup,
-#     date_of_death, date_of_birth,
-#     date_of_injury, sex, age, cause_of_injury,
-#     marital_status_at_injury,
-#     education_level_at_injury,
-#     employment_at_injury,
-#     rehab_payor_primary,
-#     rehab_payor_primary_type,
-#     problematic_substance_use_at_injury,
-#     problematic_substance_use_at_year_1,
-#     problematic_substance_use_at_followup,
-#     drs_total_at_followup,
-#     fim_total_at_followup,
-#     gose_total_at_followup,
-#     drs_total_at_year_1,
-#     fim_total_at_year_1,
-#     gose_total_at_year_1,
-#     func_score_at_year_1,
-#     suicide_attempt_hx_lifetime_at_injury,
-#     suicide_attempt_hx_past_year_at_injury,
-#     suicide_attempt_hx_past_year_at_year_1,
-#     suicide_attempt_hx_past_year_at_followup,
-#     phq1, phq2, phq3, phq4, phq5, phq6, phq7, phq8, phq9,
-#     positive_symptoms_at_year_1,
-#     cardinal_symptoms_at_year_1,
-#     depression_level_at_year_1
-#     ) |>
-#   arrange(id, data_collection_period)
-# 
-# # Save the 'analytic_data_imputed' data frame in a single .rds file
-# saveRDS(analytic_data_imputed, here(data_processed_dir, "analytic_data_imputed.rds"))
-# 
-# # Save the 'analytic_data_imputed' data frame as a CSV file in the 'data/processed' subdirectory
-# write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_imputed.csv"), row.names = FALSE)
 ```
 
 ## Create a Sample Data Frame
