@@ -38,6 +38,9 @@ if (!dir.exists(data_processed_dir)) {
 observation_period_start_date <- as.Date("2006-10-01")
 observation_period_end_date <- as.Date("2012-10-01")
 # study_end_date <- as.Date("2022-10-01")
+
+# Set a random seed for reproducibility
+set.seed(42)
 ```
 
 ```{r Define a function to import the data}
@@ -190,13 +193,20 @@ baseline_name_and_na_mappings <- list(
   education_level_at_injury = list(original_name = "EduYears", na_values = c(21, 666, 999), to_class = "numeric"),
   employment_at_injury = list(original_name = "EMPLOYMENT", na_values = c(888, 999), to_class = "factor"),
   rehab_payor_primary = list(original_name = "RehabPay1", na_values = c(888, 999), to_class = "factor"),
-  problematic_substance_use_at_injury = list(original_name = "PROBLEMUse", na_values = 99, to_class = "factor"),
-  mental_health_tx_lifetime_at_injury = list(original_name = "MntlEver", na_values = c(66, 99), to_class = "factor"),
-  mental_health_tx_past_year_at_injury = list(original_name = "MntlPrior", na_values = c(66, 99), to_class = "factor"),
-  psych_hosp_hx_lifetime_at_injury = list(original_name = "PsyHosp", na_values = c(66, 99), to_class = "factor"),
-  psych_hosp_hx_past_year_at_injury = list(original_name = "PsyHospPrior", na_values = c(66, 99), to_class = "factor"),
-  suicide_attempt_hx_lifetime_at_injury = list(original_name = "Suicide", na_values = c(66, 99), to_class = "factor"),
-  suicide_attempt_hx_past_year_at_injury = list(original_name = "SuicidePrior", na_values = c(66, 99), to_class = "factor")
+  problematic_substance_use_at_injury = list(original_name = "PROBLEMUse", na_values = c(77, 99), to_class = "factor"),
+  mental_health_tx_lifetime_at_injury = list(original_name = "MntlEver", na_values = c(66, 77, 99), to_class = "factor"),
+  mental_health_tx_past_year_at_injury = list(original_name = "MntlPrior", na_values = c(66, 77, 99), to_class = "factor"),
+  psych_hosp_hx_lifetime_at_injury = list(original_name = "PsyHosp", na_values = c(66, 77, 99), to_class = "factor"),
+  psych_hosp_hx_past_year_at_injury = list(original_name = "PsyHospPrior", na_values = c(66, 77, 99), to_class = "factor"),
+  suicide_attempt_hx_lifetime_at_injury = list(original_name = "Suicide", na_values = c(66, 77, 99), to_class = "factor"),
+  suicide_attempt_hx_past_year_at_injury = list(original_name = "SuicidePrior", na_values = c(66, 77, 99), to_class = "factor")
+  # problematic_substance_use_at_injury = list(original_name = "PROBLEMUse", na_values = 99, to_class = "factor"),
+  # mental_health_tx_lifetime_at_injury = list(original_name = "MntlEver", na_values = c(66, 99), to_class = "factor"),
+  # mental_health_tx_past_year_at_injury = list(original_name = "MntlPrior", na_values = c(66, 99), to_class = "factor"),
+  # psych_hosp_hx_lifetime_at_injury = list(original_name = "PsyHosp", na_values = c(66, 99), to_class = "factor"),
+  # psych_hosp_hx_past_year_at_injury = list(original_name = "PsyHospPrior", na_values = c(66, 99), to_class = "factor"),
+  # suicide_attempt_hx_lifetime_at_injury = list(original_name = "Suicide", na_values = c(66, 99), to_class = "factor"),
+  # suicide_attempt_hx_past_year_at_injury = list(original_name = "SuicidePrior", na_values = c(66, 99), to_class = "factor")
   )
 
 # Variable name and NA mappings for follow-up data
@@ -209,9 +219,12 @@ followup_name_and_na_mappings <- list(
   drs_total_at_followup = list(original_name = "DRSF", na_values = 999, to_class = "numeric"),
   fim_total_at_followup = list(original_name = "FIMTOTF", na_values = 9999, to_class = "numeric"),
   gose_total_at_followup = list(original_name = "GOSEF", na_values = c(66, 99), to_class = "numeric"),
-  problematic_substance_use_at_followup = list(original_name = "PROBLEMUseF", na_values = 99, to_class = "factor"),
+  problematic_substance_use_at_followup = list(original_name = "PROBLEMUseF", na_values = c(77, 99), to_class = "factor"),
+  # psych_hosp_hx_past_year_at_followup = list(original_name = "PsyHospF", na_values = c(0, 6, 7, 9), to_class = "factor"),
+  suicide_attempt_hx_past_year_at_followup = list(original_name = "SuicideF", na_values = c(66, 77, 88, 99), to_class = "factor"),
+  # problematic_substance_use_at_followup = list(original_name = "PROBLEMUseF", na_values = 99, to_class = "factor"),
   # psych_hosp_hx_past_year_at_followup = list(original_name = "PsyHospF", na_values = c(0, 6, 9), to_class = "factor"),
-  suicide_attempt_hx_past_year_at_followup = list(original_name = "SuicideF", na_values = c(66, 88, 99), to_class = "factor"),
+  # suicide_attempt_hx_past_year_at_followup = list(original_name = "SuicideF", na_values = c(66, 88, 99), to_class = "factor"),
   phq1 = list(original_name = "PHQPleasureF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
   phq2 = list(original_name = "PHQDownF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
   phq3 = list(original_name = "PHQSleepF", na_values = c(66, 81, 82, 99), to_class = "numeric"),
@@ -243,38 +256,14 @@ merged_data <- merged_data |>
   # left_join(function_factor_scores |> select(id, func), by = "id") |>
   left_join(function_factor_scores, by = "id") |>
   rename(func_score_at_year_1 = func) |>
-  mutate(
-    date_of_death = coalesce(date_of_death.x, date_of_death.y)
-    # problematic_substance_use = coalesce(problematic_substance_use.x, problematic_substance_use.y),
-    # suicide_attempt_hx_past_year = coalesce(suicide_attempt_hx_past_year_at_injury, suicide_attempt_hx_past_year_at_followup)
-  )
+  mutate(date_of_death = coalesce(date_of_death.x, date_of_death.y))
 ```
 
 The `combine_value_labels` function is designed to combine the value labels from two different variables into a single set of labels. This function is particularly useful when dealing with variables that have been coalesced from multiple data sources that need a unified set of value labels. The function takes two arguments, `var` and `var2`, which are the variables for which you want to combine the labels. The function then returns a unified list of de-duplicated labels across these variables.
 
 The `update_labels_with_sjlabelled` function is used to update the value labels of factor variables within a data frame based on their current levels. It's particularly useful as a pre-processing step to ensure that the value labels are consistent with the actual data after they have undergone various transformations. This function takes two arguments: `data`, the data frame to be processed, and `mapping_lists`, a list of mappings that specify how to handle each variable in the dataframe. The function iteratively updates each factor variable's labels to ensure that they align with the data present after various transformations.
 
-```{r Define a Function to Manage, Combine, and Update Value Labels}
-#' Combine value labels from two variables into a unified label set
-#'
-#' This function combines value labels from two variables and returns a vector of unique labels.
-#'
-#' @param var1 A variable with value labels.
-#' @param var2 A variable with value labels.
-#' @return A vector of unique value labels.
-#' @export
-#' @examples
-#' combine_value_labels(c(1, 2, 3), c(2, 3, 4))
-# combine_value_labels <- function(var1, var2) {
-#   # Retrieve value labels from the first variable
-#   labels1 <- get_labels(var1, values = "n")
-#   # Retrieve value labels from the second variable
-#   labels2 <- get_labels(var2, values = "n")
-#   # Combine and de-duplicate the labels from both variables
-#   combined_value_labels <- unique(c(labels1, labels2))
-#   return(combined_value_labels)
-# }
-
+```{r Define a Function to Update Value Labels}
 #' Update value labels of factor variables defined in mapping lists
 #'
 #' This function updates value labels of factor variables defined in mapping lists.
@@ -309,11 +298,6 @@ update_labels_with_sjlabelled <- function(data, mapping_lists) {
 ```
 
 ```{r Update Desired Value Labels}
-# # Apply label management to the merged dataset
-# # Combine and update the value labels for the coalesced 'problematic_substance_use' variable
-# combined_value_labels <- combine_value_labels(merged_data$problematic_substance_use.x, merged_data$problematic_substance_use.y)
-# merged_data$problematic_substance_use <- set_labels(merged_data$problematic_substance_use, labels = combined_value_labels)
-
 # Update value labels of variables in the mapping lists
 merged_data <- update_labels_with_sjlabelled(merged_data, list(baseline_name_and_na_mappings, followup_name_and_na_mappings))
 ```
@@ -340,7 +324,7 @@ merged_data <- merged_data |>
                      Male = "1",
                      Female = "2"
                      ) |>
-      fct_relevel("Male", "Female"),
+    fct_relevel("Male", "Female"),
     
     # Collapse and reorder the levels of the cause of injury covariate
     cause_of_injury = fct_recode(cause_of_injury,
@@ -371,6 +355,7 @@ merged_data <- merged_data |>
         Other = c("Water Sports", "Field/Track Sports", "Gymnastic Activities", "Winter Sports", "Air Sports",
                   "Other Sports", "Hit By Falling/Flying Object", "Pedestrian", "Other Unclassified")
       ) |>
+      # Set 'Vehicular' as the reference group for cause of injury
       fct_relevel("Vehicular", "Falls", "Violence", "Other"),
     
     # Collapse and reorder the levels of the marital status at injury covariate
@@ -388,6 +373,7 @@ merged_data <- merged_data |>
         Divorced = "Divorced",
         Other = c("Separated", "Widowed", "Other")
       ) |>
+      # Set 'Single' as the reference group for marital status at injury
       fct_relevel("Single", "Married", "Divorced", "Other"),
     
     # Collapse and reorder the levels of 'EMPLOYMENT'
@@ -410,6 +396,7 @@ merged_data <- merged_data |>
         Student = c("Full Time Student", "Part Time Student", "Special Education"),
         Other = c("Special Employed", "Homemaker", "Retired", "Volunteer", "Other")
       ) |>
+      # Set 'Competitively Employed' as the reference group for employment status at injury
       fct_relevel("Competitively Employed", "Unemployed", "Student", "Other"),
     
     # Add the SES proxy covariate based on primary health insurance coverage for rehabilitation services
@@ -435,117 +422,93 @@ merged_data <- merged_data |>
         "Public Insurance" = c("Medicaid", "Medicare", "State or County"),
         Other = c("Self or Private Pay", "Charity", "Payor Source Pending", "Other")
       ) |>
+      # Set 'Private Insurance' as the reference group for Medicaid status
       fct_relevel("Private Insurance", "Public Insurance", "Other"),
     
     # Set 'No' as the reference group for the problematic substance use at time of injury covariate
     problematic_substance_use_at_injury = fct_recode(problematic_substance_use_at_injury,
                                                      No = "0",
-                                                     Yes = "1",
-                                                     Refused = "77"
+                                                     Yes = "1"
                                                      ) |>
-      fct_relevel("No", "Yes", "Refused"),
+    fct_relevel("No", "Yes"),
     
     # Set 'No' as the reference group for the problematic substance use at follow-up covariate
     problematic_substance_use_at_followup = fct_recode(problematic_substance_use_at_followup,
                                                        No = "0",
-                                                       Yes = "1",
-                                                       Refused = "77"
+                                                       Yes = "1"
                                                        ) |>
-      fct_relevel("No", "Yes", "Refused"),
+    # Set 'No' as the reference group for problematic substance use at follow-up
+    fct_relevel("No", "Yes"),
     
     # Set 'No' as the reference group for the lifetime hx of mental health treatment at time of injury covariate
     mental_health_tx_lifetime_at_injury = fct_recode(mental_health_tx_lifetime_at_injury,
                                                      No = "0",
-                                                     Yes = "1",
-                                                     Refused = "77"
+                                                     Yes = "1"
                                                      # "Not Applicable" = "88"  # '88' code not present in current dataset
                                                      ) |>
-      # fct_collapse(
-      #   No = c("No", "Not Applicable"),
-      #   Yes = "Yes",
-      #   Refused = "Refused"
-      #   ) |>
-      fct_relevel("No", "Yes", "Refused"),
+    fct_relevel("No", "Yes"),
       
     # Set 'No' as the reference group for the past-year hx of mental health treatment at time of injury covariate
     mental_health_tx_past_year_at_injury = fct_recode(mental_health_tx_past_year_at_injury,
                                                       No = "0",
                                                       Yes = "1",
-                                                      Refused = "77",
                                                       "Not Applicable" = "88"  # '88' code not present in current dataset
                                                       ) |>
       fct_collapse(
         No = c("No", "Not Applicable"),
-        Yes = "Yes",
-        Refused = "Refused"
+        Yes = "Yes"
         ) |>
-      fct_relevel("No", "Yes", "Refused"),
+      fct_relevel("No", "Yes"),
     
     # Set 'No' as the reference group for the lifetime hx of psychiatric hospitalization at time of injury covariate
     psych_hosp_hx_lifetime_at_injury = fct_recode(psych_hosp_hx_lifetime_at_injury,
                                                   No = "0",
                                                   Yes = "1",
-                                                  Refused = "77",
-                                                  "Not Applicable" = "88"  # '88' code not present in current dataset
+                                                  "Not Applicable" = "88"
                                                   ) |>
       fct_collapse(
         No = c("No", "Not Applicable"),
-        Yes = "Yes",
-        Refused = "Refused"
+        Yes = "Yes"
         ) |>
-      fct_relevel("No", "Yes", "Refused"),
+      fct_relevel("No", "Yes"),
     
     # Set 'No' as the reference group for the past-year hx of psychiatric hospitalization at time of injury covariate
     psych_hosp_hx_past_year_at_injury = fct_recode(psych_hosp_hx_past_year_at_injury,
                                                    No = "0",
                                                    Yes = "1",
-                                                   Refused = "77",
-                                                   "Not Applicable" = "88"  # '88' code not present in current dataset
+                                                   "Not Applicable" = "88"
                                                    ) |>
       fct_collapse(
         No = c("No", "Not Applicable"),
-        Yes = "Yes",
-        Refused = "Refused"
+        Yes = "Yes"
         ) |>
-      fct_relevel("No", "Yes", "Refused"),
-    
-    # # Set 'No' as the reference group for the past-year hx of psychiatric hospitalization at follow-up covariate
-    # psych_hosp_hx_past_year_at_followup = fct_recode(psych_hosp_hx_past_year_at_followup,
-    #                                                No = "1",
-    #                                                Yes = "2",
-    #                                                Refused = "7"
-    #                                                ) |>
-    #   fct_relevel("No", "Yes", "Refused"),
+      fct_relevel("No", "Yes"),
 
     # Set 'No' as the reference group for the past-year hx of suicide attempt at time of injury covariate
     suicide_attempt_hx_lifetime_at_injury = fct_recode(suicide_attempt_hx_lifetime_at_injury,
                                               No = "0",
                                               Yes = "1",
-                                              Refused = "77"
                                               ) |>
-      fct_relevel("No", "Yes", "Refused"),
+      fct_relevel("No", "Yes"),
     
     # Set 'No' as the reference group for the past-year hx of suicide attempt at time of injury covariate
     suicide_attempt_hx_past_year_at_injury = fct_recode(suicide_attempt_hx_past_year_at_injury,
                                               No = "0",
                                               Yes = "1",
-                                              Refused = "77",
                                               "Not Applicable" = "88"
                                               ) |>
       fct_collapse(
         No = c("No", "Not Applicable"),
-        Yes = "Yes",
-        Refused = "Refused"
+        Yes = "Yes"
         ) |>
-      fct_relevel("No", "Yes", "Refused"),
+      fct_relevel("No", "Yes"),
     
     # Set 'No' as the reference group for the past-year hx of suicide attempt at follow-up covariate
     suicide_attempt_hx_past_year_at_followup = fct_recode(suicide_attempt_hx_past_year_at_followup,
                                                           No = "0",
                                                           Yes = "1",
-                                                          Refused = "77"
                                                           ) |>
-      fct_relevel("No", "Yes", "Refused"),
+      fct_relevel("No", "Yes")
   ) |>
   
   droplevels()  # Drop unused factor levels
@@ -554,11 +517,15 @@ merged_data <- merged_data |>
 ```{r Carry Baseline Variables Forward to Subsequent Observations while Maintaining Factor Labels}
 # List of baseline variables to carry forward to subsequent observations via LOCF
 baseline_vars <- c(
-  "date_of_birth", "date_of_injury",
-  "sex", "age", "cause_of_injury", 
+  "date_of_birth",
+  "date_of_injury",
+  "sex",
+  "age",
+  "cause_of_injury", 
   "marital_status_at_injury", 
   "education_level_at_injury",
-  "employment_at_injury", "rehab_payor_primary",
+  "employment_at_injury",
+  "rehab_payor_primary",
   "rehab_payor_primary_type",
   "problematic_substance_use_at_injury",
   "mental_health_tx_lifetime_at_injury",
@@ -607,7 +574,7 @@ for (var in names(original_factor_info)) {
 }
 ```
 
-The following code chunk computes two new variables, which are added to the merged data frame: `time_to_expiration` and `time_to_censorship`. The calculations for these variables are based on the dates of injury, follow-up, and death for each observation. Consideration is given to whether or not each observation is the last observation for a given `id`; if it is, then the `time_to_expiration` calculation is prioritized (assuming a valid date is entered for `date_of_death`); if additional observations exist for the current participant, then the `time_to_censorship` calculation is prioritized (assuming a valid date is entered for `date_of_followup`). The `dplyr` and `lubridate` packages facilitate data manipulation and date calculations, respectively. The result is a modified data frame that includes the two new variables.
+<!-- The following code chunk computes two new variables, which are added to the merged data frame: `time_to_expiration` and `time_to_censorship`. The calculations for these variables are based on the dates of injury, follow-up, and death for each observation. Consideration is given to whether or not each observation is the last observation for a given `id`; if it is, then the `time_to_expiration` calculation is prioritized (assuming a valid date is entered for `date_of_death`); if additional observations exist for the current participant, then the `time_to_censorship` calculation is prioritized (assuming a valid date is entered for `date_of_followup`). The `dplyr` and `lubridate` packages facilitate data manipulation and date calculations, respectively. The result is a modified data frame that includes the two new variables. -->
 
 ```{r Calculate Time to Censorship and Time to Expiration, include=FALSE}
 # merged_data <- merged_data |>
@@ -630,14 +597,14 @@ The following code chunk computes two new variables, which are added to the merg
 
 ### Create and Impute the Year 1 Problematic Substance Use and Past-Year Suicide Attempt History Variables
 
-The following function is designed to process the relevant Year 1 variables from a longitudinal dataset by executing the following:
+<!-- The following function is designed to process the relevant Year 1 variables from a longitudinal dataset by executing the following: -->
 
-1. **Input:** It takes a dataset (`data`) as its input. This dataset may contain a number of different variables, including those collected during other (i.e., non-Year 1) follow-up interviews.
-2. **Filtering Year 1 Data:** The function first filters this dataset to only include data from the Year 1 follow-up interview.
-3. **Selecting and Renaming Variables:** The function then selects specific variables that are relevant to Year 1 and renames them. This renaming helps to identify these variables in later stages of the process.
-4. **Joining Data:** After extracting and renaming the desired Year 1 variables, the function rejoins this subset of data back to the original dataset. This step is crucial for maintaining a complete dataset with Year 1 variables that are clearly defined.
-5. **Imputing Missing Values:** The function identifies the Year 1 variables that require imputation and then imputes these missing values via the "down-up" procedure within each group of the same 'id'. In other words, it fills missing values with the nearest non-missing value from the observation either below (down) or above (up) in the same 'id' group.
-6. **Output:** The final output of this function is the original dataset with the clearly marked Year 1 data and corresponding imputed missing values.
+<!-- 1. **Input:** It takes a dataset (`data`) as its input. This dataset may contain a number of different variables, including those collected during other (i.e., non-Year 1) follow-up interviews. -->
+<!-- 2. **Filtering Year 1 Data:** The function first filters this dataset to only include data from the Year 1 follow-up interview. -->
+<!-- 3. **Selecting and Renaming Variables:** The function then selects specific variables that are relevant to Year 1 and renames them. This renaming helps to identify these variables in later stages of the process. -->
+<!-- 4. **Joining Data:** After extracting and renaming the desired Year 1 variables, the function rejoins this subset of data back to the original dataset. This step is crucial for maintaining a complete dataset with Year 1 variables that are clearly defined. -->
+<!-- 5. **Imputing Missing Values:** The function identifies the Year 1 variables that require imputation and then imputes these missing values via the "down-up" procedure within each group of the same 'id'. In other words, it fills missing values with the nearest non-missing value from the observation either below (down) or above (up) in the same 'id' group. -->
+<!-- 6. **Output:** The final output of this function is the original dataset with the clearly marked Year 1 data and corresponding imputed missing values. -->
 
 ```{r Define a Function to Extract the Year 1 Variables of Interest from the Follow-Up Data and Impute the Values Forward and Backward, include=FALSE}
 #' Extract and Impute Year 1 Data
@@ -839,7 +806,7 @@ log_removed_ids <- function(original_data, filtered_data, criterion_number, base
 }
 ```
 
-### Helper Functions
+### Define a Helper Function to Dynamically Calculate Each Participant's End Date
 
 ```{r Define a Helper Function to Dynamically Calculate Each Participant's End Date}
 # # Define a function to verify whether a specified date falls within the study period
@@ -848,9 +815,9 @@ log_removed_ids <- function(original_data, filtered_data, criterion_number, base
 # }
 
 # Define a function to dynamically calculate each participant's end date
-is_within_study_period <- function(injury_date, date) {
-  study_end_date <- injury_date + years(10)
-  !is.na(date) & date >= observation_period_start_date & date <= study_end_date
+is_within_study_period <- function(date_of_injury, date_of_followup) {
+  participant_end_date <- date_of_injury + years(10)
+  !is.na(date_of_followup) & date_of_followup >= observation_period_start_date & date_of_followup <= participant_end_date
 }
 ```
 
@@ -961,7 +928,8 @@ apply_criterion_1 <- function(data, observation_period_start_date, observation_p
       special_case = status_at_followup %in% c("Lost", "Refused", "Incarcerated", "Withdrew", "No Funding"),
       include_observation = if_else(data_collection_period == 0, TRUE, valid_followup | (special_case & lead(valid_followup, default = TRUE))),
       calendar_year_of_event = if_else(!is.na(date_of_death), year(date_of_death),
-                                       if_else(!is.na(date_of_followup), year(date_of_followup), NA_integer_))
+                                       if_else(!is.na(date_of_followup), year(date_of_followup), NA_integer_)),
+      calendar_year_of_injury = year(date_of_injury)
     ) |>
     filter(include_observation) |>
     mutate(
@@ -976,7 +944,8 @@ apply_criterion_1 <- function(data, observation_period_start_date, observation_p
     ungroup() |>
     select(id, data_collection_period, status_at_followup, event_status,
            time_to_event, time_to_censorship, time_to_expiration,
-           calendar_year_of_event, date_of_followup, date_of_death, study_end_date, everything()) |>
+           calendar_year_of_injury, calendar_year_of_event,
+           date_of_followup, date_of_death, study_end_date, everything()) |>
     select(-valid_followup, -special_case, -include_observation) |>
     arrange(id, data_collection_period)
   
@@ -1109,9 +1078,6 @@ analytic_data <- apply_criterion_3(analytic_data, tbims_form1_labels, tbims_form
 ### Create a Sample Data Frame of the Analytic Data
 
 ```{r Create a sample data frame of the analytic dataset without depression variables, include=FALSE}
-# Set a random seed for reproducibility
-set.seed(42)
-
 # Create a vector of unique participant IDs
 unique_participant_ids <- unique(analytic_data$id)
 
@@ -1321,6 +1287,133 @@ extract_and_impute_year_1_data <- function(data) {
 analytic_data_imputed <- extract_and_impute_year_1_data(analytic_data_depression)
 ```
 
+```{r Define a Function to Create a New Factor Variable to Represent Self-Reported History of Suicide Attempt}
+create_suicide_attempt_hx_factor <- function(lifetime, past_year_at_injury, past_year_at_year_1) {
+  # Initialize the vector for the new factor variable
+  new_factor <- integer(length = length(lifetime))
+  
+  for(i in 1:length(lifetime)) {
+    if(is.na(lifetime[i]) || is.na(past_year_at_injury[i]) || is.na(past_year_at_year_1[i])) {
+      new_factor[i] <- NA # Assign NA for missing data
+    } else if(lifetime[i] == "No" && past_year_at_injury[i] == "No" && past_year_at_year_1[i] == "No") {
+      new_factor[i] <- 0 # Denied any history
+    } else if(past_year_at_year_1[i] == "Yes") {
+      new_factor[i] <- 2 # Suicide attempt in the first year post-injury
+    } else if(lifetime[i] == "Yes" || past_year_at_injury[i] == "Yes") {
+      new_factor[i] <- 1 # Suicide attempt history prior to injury
+    } else if(lifetime[i] == "Refused" || past_year_at_injury[i] == "Refused" || past_year_at_year_1[i] == "Refused") {
+      new_factor[i] <- NA # Assign NA for refused to answer
+    } else {
+      new_factor[i] <- NA # Catch-all for any undefined cases
+    }
+  }
+  
+  # Convert to factor with descriptive labels
+  new_factor <- factor(new_factor, levels = c(0, 1, 2),
+                       labels = c("Denied any history of suicide attempt",
+                                  "Suicide attempt history prior to injury",
+                                  "Suicide attempt in the first year post-injury"))
+  
+  return(new_factor)
+}
+
+# Call the function and assign the result to a new column in the data frame
+analytic_data_imputed$suicide_attempt_hx = create_suicide_attempt_hx_factor(
+  lifetime = analytic_data_imputed$suicide_attempt_hx_lifetime_at_injury,
+  past_year_at_injury = analytic_data_imputed$suicide_attempt_hx_past_year_at_injury,
+  past_year_at_year_1 = analytic_data_imputed$suicide_attempt_hx_past_year_at_year_1
+)
+
+# Remove unused factor levels from the newly created variable
+analytic_data_imputed$suicide_attempt_hx <- droplevels(analytic_data_imputed$suicide_attempt_hx)
+```
+
+```{r Define a Function to Create a New Factor Variable to Represent Self-Reported History of Mental Health Treatment}
+# Define a function to create a new factor variable representing full history of mental health treatment
+create_mental_health_tx_factor <- function(lifetime, past_year_at_injury) {
+  # Initialize the vector for the new factor variable
+  new_factor <- integer(length = length(lifetime))
+  
+  for(i in 1:length(lifetime)) {
+    if(is.na(lifetime[i]) || is.na(past_year_at_injury[i])) {
+      new_factor[i] <- NA # Assign NA for missing data
+    } else if(lifetime[i] == "No" && past_year_at_injury[i] == "No") {
+      new_factor[i] <- 0 # Denied any history of mental health treatment
+    } else if(lifetime[i] == "Yes" && past_year_at_injury[i] == "No") {
+      new_factor[i] <- 1 # Mental health treatment endorsed prior to year preceding index injury only
+    } else if(lifetime[i] == "Yes" && past_year_at_injury[i] == "Yes") {
+      new_factor[i] <- 2 # Mental health treatment endorsed at time of injury
+    } else if(lifetime[i] == "Refused" || past_year_at_injury[i] == "Refused") {
+      new_factor[i] <- 5 # Participant refused to provide full mental health history
+    } else {
+      new_factor[i] <- 6 # Inconsistent reports of mental health history across time points
+    }
+  }
+  
+  # Convert to factor with descriptive labels
+  new_factor <- factor(new_factor, levels = c(0, 1, 2, 5, 6),
+                       labels = c("Denied any history of mental health treatment",
+                                  "Mental health treatment received prior to year preceding index injury only",
+                                  "Mental health treatment received within year preceding index injury",
+                                  "Participant refused to provide full mental health history",
+                                  "Inconsistent reports of mental health history across time points"))
+  
+  return(new_factor)
+}
+
+# Call the function and assign the result to a new column in the data frame
+analytic_data_imputed$mental_health_tx_hx = create_mental_health_tx_factor(
+  lifetime = analytic_data_imputed$mental_health_tx_lifetime_at_injury,
+  past_year_at_injury = analytic_data_imputed$mental_health_tx_past_year_at_injury
+)
+
+# Remove unused factor levels from the newly created variable
+analytic_data_imputed$mental_health_tx_hx <- droplevels(analytic_data_imputed$mental_health_tx_hx)
+```
+
+```{r Define a Function to Create a New Factor Variable to Represent Self-Reported History of Psychiatric Hospitalization}
+# Define a function to create a new factor variable representing full history of psychiatric hospitalization
+create_psych_hosp_hx_factor <- function(lifetime, past_year_at_injury) {
+  # Initialize the vector for the new factor variable
+  new_factor <- integer(length = length(lifetime))
+  
+  for(i in 1:length(lifetime)) {
+    if(is.na(lifetime[i]) || is.na(past_year_at_injury[i])) {
+      new_factor[i] <- NA # Assign NA for missing data
+    } else if(lifetime[i] == "No" && past_year_at_injury[i] == "No") {
+      new_factor[i] <- 0 # Denied any history of psychiatric hospitalization
+    } else if(lifetime[i] == "Yes" && past_year_at_injury[i] == "No") {
+      new_factor[i] <- 1 # Endorsed psychiatric hospital admission prior to year preceding index injury only
+    } else if(lifetime[i] == "Yes" && past_year_at_injury[i] == "Yes") {
+      new_factor[i] <- 2 # Endorsed psychiatric hospital admission within year preceding index injury
+    } else if(lifetime[i] == "Refused" || past_year_at_injury[i] == "Refused") {
+      new_factor[i] <- 5 # Participant refused to provide full psychiatric hospitalization history
+    } else {
+      new_factor[i] <- 6 # Inconsistent reports of psychiatric hospitalization history across time points
+    }
+  }
+  
+  # Convert to factor with descriptive labels
+  new_factor <- factor(new_factor, levels = c(0, 1, 2, 5, 6),
+                       labels = c("Denied any history of psychiatric hospitalization",
+                                  "Psychiatric hospital admission prior to year preceding index injury only",
+                                  "Psychiatric hospital admission within year preceding index injury",
+                                  "Participant refused to provide full psychiatric hospitalization history",
+                                  "Inconsistent reports of psychiatric hospitalization history across time points"))
+  
+  return(new_factor)
+}
+
+# Call the function and assign the result to a new column in the data frame
+analytic_data_imputed$psych_hosp_hx = create_psych_hosp_hx_factor(
+  lifetime = analytic_data_imputed$psych_hosp_hx_lifetime_at_injury,
+  past_year_at_injury = analytic_data_imputed$psych_hosp_hx_past_year_at_injury
+)
+
+# Remove unused factor levels from the newly created variable
+analytic_data_imputed$psych_hosp_hx <- droplevels(analytic_data_imputed$psych_hosp_hx)
+```
+
 ```{r Convert the Units of the Time-to-Event Variables from Days to Years Select and Arrange the Columns in the Imputed Analytic Sample Data Frame}
 # Convert 'time_to_event', 'time_to_censorship', and 'time_to_expiration' from days to years
 analytic_data_imputed <- analytic_data_imputed |>
@@ -1345,6 +1438,7 @@ analytic_data_imputed <- analytic_data_imputed |>
     time_to_event_in_years,
     time_to_censorship_in_years,
     time_to_expiration_in_years,
+    calendar_year_of_injury,
     calendar_year_of_event,
     date_of_followup,
     date_of_death,
@@ -1369,8 +1463,10 @@ analytic_data_imputed <- analytic_data_imputed |>
     func_score_at_year_1,
     mental_health_tx_lifetime_at_injury,
     mental_health_tx_past_year_at_injury,
+    mental_health_tx_hx,
     psych_hosp_hx_lifetime_at_injury,
     psych_hosp_hx_past_year_at_injury,
+    psych_hosp_hx,
     problematic_substance_use_at_injury,
     problematic_substance_use_at_year_1,
     problematic_substance_use_at_followup,
@@ -1378,6 +1474,7 @@ analytic_data_imputed <- analytic_data_imputed |>
     suicide_attempt_hx_past_year_at_injury,
     suicide_attempt_hx_past_year_at_year_1,
     suicide_attempt_hx_past_year_at_followup,
+    suicide_attempt_hx,
     phq1, phq2, phq3, phq4, phq5, phq6, phq7, phq8, phq9,
     positive_symptoms_at_year_1,
     cardinal_symptoms_at_year_1,
@@ -1417,7 +1514,7 @@ write.csv(sampled_analytic_data, file = "~/Downloads/sampled_analytic_data.csv",
 ```{r Retain Only the Last Valid Observation Per Participant}
 # Retain only the last observation for each unique 'id' based on the maximum 'time_to_event' value
 analytic_data_final <- analytic_data_imputed |>
-  arrange(id, time_to_event_in_years) |>
+  arrange(id, time_to_event) |>
   group_by(id) |>
   slice(n()) |>
   ungroup()
@@ -1430,9 +1527,6 @@ write.csv(analytic_data_final, file.path(data_processed_dir, "analytic_data_fina
 ```
 
 ```{r Create a Sample Data Frame of the Final Analytic Data, include=FALSE}
-# Set a random seed for reproducibility
-set.seed(42)
-
 # Create a vector of unique participant IDs
 unique_participant_ids <- unique(analytic_data_final$id)
 
