@@ -1074,7 +1074,7 @@ Martingale residuals primarily serve as a diagnostic tool to assess model fit vi
 
 However, one can use Martingale residuals in a more analytical approach to test for non-linearity or to identify influential observations. For instance, plotting Martingale residuals against each covariate can help in visually detecting non-linear relationships. Additionally, a common practice is to fit a smoothed curve (like a lowess curve) to the plot of Martingale residuals versus covariates to assess if there's a systematic deviation from zero, which would suggest non-linearity.
 
-## Plotting
+## Plotting Survival Curves
 
 ```{r Create Prediction Data Frames}
 # Relevel the strata factors and set preferred reference levels
@@ -1141,7 +1141,7 @@ surv_cxsf <- surv_summary(cxsf, data = complete_cases_all) |>  # Summarize the s
 m_newdat <- average_participant[as.character(surv_cxsf$strata), ]  # Match new data with survival summary strata
 
 # Define the crop limit
-crop <- 0.75
+crop <- 0.5
 ```
 
 ```{r Plot the Survival Curves for Model 1}
@@ -1190,8 +1190,8 @@ gg.surv.model5 <- surv_model_5 |>
     conf.int = FALSE,
     censor = FALSE,
     surv.scale = "percent",
-    break.time.by = 2,
-    xlim = c(0, 10), # Limit x-axis to 10 years
+    break.time.by = 1,
+    xlim = c(0, 5), # Limit x-axis to 10 years
     ylim = c(crop, 1),
     palette = c("#90cbf9", "#2196f3", "#114b7a"),
     ggtheme = theme_classic(),
