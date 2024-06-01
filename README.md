@@ -19,6 +19,21 @@ First, the positive symptoms of depression were calculated for each participant 
 ### Proposed Covariates: Predictors of Mortality in TBI
 The following TBIMS variables were proposed as covariates in the survival analysis due to their previously observed associations with mortality among TBI patients in the prior literature. Additional information about each variable may be accessed at the [TBIMS Data Dictionary](https://hub.tbindsc.org/tbimsdatadictionary/Home).
 
+**DEPRESSION AT YEAR 1**
+
+| Original Variable Name | New Variable Name | Variable Label                                | Original Value Labels |
+|------------------------|-------------------|-----------------------------------------------|-----------------------|
+| `SuicideF`             | `suicide_attempt_hx_past_year_at_followup` | Interview Question: In the past year, have you attempted suicide? | 0 - No<br>1 - Yes<br>66 - Variable Did Not Exist<br>77 - Refused<br>88 - Not Applicable: Variable not due this year<br>99 - Unknown |
+| `PHQPleasureF`         | `phq1` | Interview Question: a. Little interest or pleasure in doing things | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQDownF`             | `phq2` | Interview Question: b. Feeling down, depressed, or hopeless | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQSleepF`             | `phq3` | Interview Question: c. Trouble falling or staying asleep, or sleeping too much | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQTiredF`             | `phq4` | Interview Question: d. Feeling tired or having little energy | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQEatF`               | `phq5` | Interview Question: e. Poor appetite or overeating | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQBadF`               | `phq6` | Interview Question: f. Feeling bad about yourself or that you are a failure or have let yourself or your family down | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQConcentrateF`       | `phq7` | Interview Question: g. Trouble concentrating on things, such as reading the newspaper or watching television | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQSlowF`              | `phq8` | Interview Question: h. Moving or speaking so slowly that other people could have noticed. Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+| `PHQDeadF`             | `phq9` | Interview Question: i. Thoughts that you would be better off dead or hurting yourself in some way | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
+
 **SOCIODEMOGRAPHIC CHARACTERISTICS**
 
 | Original Variable Name | New Variable Name | Variable Label                                | Original Value Labels |
@@ -48,21 +63,6 @@ The following TBIMS variables were proposed as covariates in the survival analys
 | `FIMTOTF`              | `fim_total_at_followup` | Interview Question: FIM Total (New) Follow-up | 9999 - Unknown |
 | `GOSEF`                 | `gose_total_at_followup` | Interview Question: GOS-E Incl. Expired | 1 - Dead<br>2 - Vegetative State (VS)<br>3 - Lower Severe Disability (LSD)<br>4 - Upper Severe Disability (USD)<br>5 - Lower Moderate Disability (LMD)<br>6 - Upper Moderate Disability (UMD)<br>7 - Lower Good Recovery (LGR)<br>8 - Upper Good Recovery <UGR)<br>66 - Variable Did Not Exist<br>99 - Unknown |
 
-**DEPRESSION AT YEAR 1**
-
-| Original Variable Name | New Variable Name | Variable Label                                | Original Value Labels |
-|------------------------|-------------------|-----------------------------------------------|-----------------------|
-| `SuicideF`             | `suicide_attempt_hx_past_year_at_followup` | Interview Question: In the past year, have you attempted suicide? | 0 - No<br>1 - Yes<br>66 - Variable Did Not Exist<br>77 - Refused<br>88 - Not Applicable: Variable not due this year<br>99 - Unknown |
-| `PHQPleasureF`         | `phq1` | Interview Question: a. Little interest or pleasure in doing things | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQDownF`             | `phq2` | Interview Question: b. Feeling down, depressed, or hopeless | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQSleepF`             | `phq3` | Interview Question: c. Trouble falling or staying asleep, or sleeping too much | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQTiredF`             | `phq4` | Interview Question: d. Feeling tired or having little energy | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQEatF`               | `phq5` | Interview Question: e. Poor appetite or overeating | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQBadF`               | `phq6` | Interview Question: f. Feeling bad about yourself or that you are a failure or have let yourself or your family down | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQConcentrateF`       | `phq7` | Interview Question: g. Trouble concentrating on things, such as reading the newspaper or watching television | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQSlowF`              | `phq8` | Interview Question: h. Moving or speaking so slowly that other people could have noticed. Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-| `PHQDeadF`             | `phq9` | Interview Question: i. Thoughts that you would be better off dead or hurting yourself in some way | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
-
 ### Additional TBIMS Variables
 
 | Original Variable Name | New Variable Name | Variable Label                                       | Original Value Labels |
@@ -84,7 +84,8 @@ The provided scripts should be run in the sequential order specified by the file
 1. **Preprocessing (`01_preprocessing.qmd`):** This initial script prepares the dataset for subsequent analyses via data cleaning, handling missing values, and imputing Year 1 values to previous and subsequent observations. To ensure reproducibility of results, request and use the `TBIMS_2023Q2_SPSS` Form 1 and Form 2 files as the raw data input for this script.
 2. **Missing Data Analysis (`02_missing_data_analysis.qmd`):** This script generates exploratory data visualizations and summaries to provide insights into the nature and severity of missing data within the preprocessed dataset.
 3. **Descriptive Tables (`03_generate_descriptive_tables.qmd`):** This script generates descriptive tables that provide summaries of the study sample characteristics with respect to key variables.
-4. **Univariate and Bivariate Plots (`04_generate_univariate_and_bivariate_plots.qmd`):** This script generates univariate and bivariate plots of the covariates of interest. 
+4. **Univariate and Bivariate Plots (`04_generate_univariate_and_bivariate_plots.qmd`):** This script generates univariate and bivariate plots of the covariates of interest.
+5. **Cox Regression Analysis (`05_perform_cox_regression_analysis.qmd`):** This script performs univariable and multivariable survival analyses using the Cox proportional hazards model. Assumption tests (e.g., proportional hazards and time-invariant covariates, linearity of continuous covariates, multicollinearity) are conducted to ensure the validity of results.
 
 ### Tools and Packages
 This project uses the following R packages:
