@@ -7,21 +7,32 @@ editor: visual
 
 # Install and Load Libraries
 
-```{r Initial Setup and Library Loading, echo=TRUE, eval=FALSE}
+```{r Initial Setup and Library Loading, echo = TRUE}
 # Load the pacman package (install if necessary)
 if (!requireNamespace("pacman", quietly = TRUE)) {
   install.packages("pacman")
 }
 
 # Install and load prerequisite libraries
-# pacman::p_load(ComplexUpset, extrafont, ggplotify, here, naniar, scales, tidyverse)
 pacman::p_load(ComplexUpset, extrafont, here, naniar, scales, tidyverse)
+
+# Create the 'data/processed' subdirectory if not already accessible
+data_processed_dir <- here("data", "processed")
+if (!dir.exists(data_processed_dir)) {
+  dir.create(data_processed_dir, recursive = TRUE)
+}
 
 # Create the 'output/plots/univariate_and_bivariate_plots' subdirectory if not already available
 missingness_plots_dir <- here("output", "plots", "missingness")
 if (!dir.exists(missingness_plots_dir)) {
   dir.create(missingness_plots_dir, recursive = TRUE)
 }
+
+# Load the .rds files
+analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final.rds"))
+
+# Convert 'analytic_data_final' to a data frame
+analytic_data_final <- as.data.frame(analytic_data_final)
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
@@ -43,7 +54,7 @@ all_proposed_covariates <- c("id",
                              "age_at_expiration",
                              "calendar_year_of_injury",
                              "sex",
-                             "age",
+                             "age_at_injury",
                              "education_level_at_injury",
                              "employment_at_injury",
                              "marital_status_at_injury",
@@ -77,7 +88,7 @@ select_covariates_1 <- c("id",
                          "age_at_expiration",
                          "calendar_year_of_injury",
                          "sex",
-                         "age",
+                         "age_at_injury",
                          "education_level_at_injury",
                          "employment_at_injury",
                          "marital_status_at_injury",
@@ -98,7 +109,7 @@ all_proposed_covariates_labels <- c(
   depression_level_at_year_1 = "Depression Level at Year 1",
   calendar_year_of_injury = "Calendar Year of Injury",
   sex = "Sex",
-  age = "Age at Injury",
+  age_at_injury = "Age at Injury",
   education_level_at_injury = "Educational Attainment at Injury",
   employment_at_injury = "Employment Status at Injury",
   marital_status_at_injury = "Marital Status at Injury",
@@ -127,7 +138,7 @@ select_covariates_1_labels <- c(
   depression_level_at_year_1 = "Depression Level at Year 1",
   calendar_year_of_injury = "Calendar Year of Injury",
   sex = "Sex",
-  age = "Age at Injury",
+  age_at_injury = "Age at Injury",
   education_level_at_injury = "Educational Attainment at Injury",
   employment_at_injury = "Employment Status at Injury",
   marital_status_at_injury = "Marital Status at Injury",
@@ -338,6 +349,10 @@ prepare_na_counts_df <- function(df) {
 # Prepare the NA counts for all proposed covariates
 na_counts_for_all_proposed_covariates <- prepare_na_counts_df(all_proposed_covariates_for_plots)
 na_counts_for_select_covariates_1 <- prepare_na_counts_df(select_covariates_1_for_plots)
+
+# Save the NA counts data frames in single .rds files
+saveRDS(na_counts_for_all_proposed_covariates, here(data_processed_dir, "na_counts_for_all_proposed_covariates.rds"))
+saveRDS(na_counts_for_select_covariates_1, here(data_processed_dir, "na_counts_for_select_covariates_1.rds"))
 ```
 
 ## Plot the Number of Missing Values
@@ -354,7 +369,7 @@ figure_17_1 <- gg_miss_var(all_proposed_covariates_for_plots) +
     labels = c(
       calendar_year_of_injury = "Calendar Year of Injury",
       sex = "Sex",
-      age = "Age at Injury",
+      age_at_injury = "Age at Injury",
       education_level_at_injury = "Educational Attainment at Injury",
       employment_at_injury = "Employment Status at Injury",
       marital_status_at_injury = "Marital Status at Injury",
@@ -396,6 +411,8 @@ ggsave(here(missingness_plots_dir, "figure_17-1_all_proposed_covariates_missing_
        figure_17_1, dpi = 300)
 ```
 
+![](images/figure_17-1_all_proposed_covariates_missing_value_counts.png){fig-align="center"}
+
 ### Figure 17-2: Count of Missing Values Across All Proposed Covariates Excluding Functional Variables and Self-Report History Component Variables
 
 ```{r Plot Figure 17-2}
@@ -408,7 +425,7 @@ figure_17_2 <- gg_miss_var(select_covariates_1_for_plots) +
     labels = c(
       calendar_year_of_injury = "Calendar Year of Injury",
       sex = "Sex",
-      age = "Age at Injury",
+      age_at_injury = "Age at Injury",
       education_level_at_injury = "Educational Attainment at Injury",
       employment_at_injury = "Employment Status at Injury",
       marital_status_at_injury = "Marital Status at Injury",
@@ -439,6 +456,8 @@ ggsave(here(missingness_plots_dir, "figure_17-2_select_covariates_1_missing_valu
        figure_17_2, dpi = 300)
 ```
 
+![](images/figure_17-2_select_covariates_1_missing_value_counts.png)
+
 ## Plot the Patterns and Intersections of Missing Values
 
 ### Figure 18-1: Patterns of Missingness Across All Proposed Covariates
@@ -460,6 +479,8 @@ gg_miss_upset_custom(all_proposed_covariates_for_plots,
 dev.off()
 ```
 
+![](images/figure_18-1_all_proposed_covariates_missing_patterns_plot.png){fig-align="center"}
+
 ### Figure 18-2: Patterns of Missingness Across All Proposed Covariates Excluding Functional Variables
 
 ```{r Plot Figure 18-2}
@@ -478,3 +499,5 @@ gg_miss_upset_custom(select_covariates_1_for_plots,
 # Close the graphics device
 dev.off()
 ```
+
+![](images/figure_18-2_select_covariates_1_missing_patterns_plot.png){fig-align="center"}
