@@ -1,7 +1,7 @@
 # Depression and Long-Term Survival Following Moderate-to-Severe Traumatic Brain Injury: A Longitudinal Retrospective Analysis of the TBIMS NDB
 
 ## Introduction
-This study seeks to examine associations between depression and all-cause mortality in the **{##}** years following hospitalization for moderate-to-severe traumatic brain injury (msTBI), with and without adjustment for known risk factors for death.
+This study seeks to examine associations between depression and all-cause mortality in the 5-10 years following hospitalization for moderate-to-severe traumatic brain injury (msTBI), with and without adjustment for known risk factors for death.
 
 To be eligible for inclusion in the present study, patients must have been enrolled in the [Traumatic Brain Injury Model Systems National Database](https://www.tbindsc.org/) with an index injury date between October 1, 2006 and October 1, 2012. Follow-up in this study continued through October 1, 2022.
 
