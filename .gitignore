@@ -42,3 +42,4 @@ docs
 !/notebooks/02_exploratory_data_analysis.qmd
 !/notebooks/03_generate_descriptive_tables.qmd
 !/notebooks/04_generate_univariate_and_bivariate_plots.qmd
+!/notebooks/05_perform_cox_regression_analysis.qmd
