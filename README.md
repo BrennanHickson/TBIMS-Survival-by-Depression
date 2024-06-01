@@ -21,9 +21,9 @@ The following TBIMS variables were proposed as covariates in the survival analys
 
 **SOCIODEMOGRAPHIC CHARACTERISTICS**
 
-| Original Variable Name | New Variable Name | Variable Label                                | Value Labels |
-|------------------------|-------------------|-----------------------------------------------|--------------|
-| `AGE`                  | `age`             | Age at Injury                                 | 9999 - Unknown |
+| Original Variable Name | New Variable Name | Variable Label                                | Original Value Labels |
+|------------------------|-------------------|-----------------------------------------------|-----------------------|
+| `AGE`                  | `age`             | Age at Injury                                 | 9999 - Unknown        |
 | `SexF`                 | `sex`             | Interview Question: Sex                       | 1 - Female<br>2 - Male<br>99 - Unknown |
 | `EduYears`            | `education_level_at_injury` | Interview Question: How many years of education have you completed? If you have not graduated from high school, choose the number of years spent in school. If you have at least a high school diploma, please indicate the highest degree earned (or worked toward). | 1 - 1 Year or Less<br>2 - 2 Years<br>3 - 3 Years<br>4 - 4 Years<br>5 - 5 Years<br>6 - 6 Years<br>7 - 7 Years<br>8 - 8 Years<br>9 - 9 Years<br>10 - 10 Years<br>11 - 11 or 12 Years: No diploma<br>12 - HS Diploma<br>13 - Work Toward Associate's<br>14 - Associate's<br>15 - Work Toward Bachelor's<br>16 - Bachelor's Degree<br>17 - Work Toward Master's<br>18 - Master's Degree<br>19 - Work Toward Doctoral Level<br>20 - Doctoral Level Degree<br>21 - Other<br>666 - Variable Did Not Exist<br>999 - Unknown |
 | `EMPLOYMENT`           | `employment_at_injury` | Interview Question: At the time of injury, what was your employment status? | 2 - Full Time Student<br>3 - Part Time Student<br>4 - Special Education<br>5 - Employed<br>7 - Homemaker<br>8 - Employed<br>9 - Retired<br>10 - Unemployed<br>11 - Volunteer<br>12 - Other<br>888 - Not Applicable<br>999 - Unknown |
@@ -31,8 +31,8 @@ The following TBIMS variables were proposed as covariates in the survival analys
 
 **BASELINE HEALTH AND ACUTE INJURY CHARACTERISTICS**
 
-| Original Variable Name | New Variable Name | Variable Label                                | Value Labels |
-|------------------------|-------------------|-----------------------------------------------|--------------|
+| Original Variable Name | New Variable Name | Variable Label                                | Original Value Labels |
+|------------------------|-------------------|-----------------------------------------------|-----------------------|
 | `RehabPay1`            | `rehab_payor_primary` | Interview Question: Primary rehabilitation payor                                 | 1 - Medicare<br>2 - Medicaid<br>3 - Workers' Compensation<br>4 - Private Insurance<br>7 - Self or Private Pay<br>8 - State or County<br>10 - Auto Insurance<br>14 - Charity<br>15 - Other<br>55 - Payor Source Pending<br>999 - Unknown |
 | `Cause`                | `cause_of_injury` | Interview Question: Cause of injury          | 1 - Motor Vehicle<br>2 - Motorcycle<br>3 - Bicycle<br>4 - All-Terrain Vehicle (ATV) and All-Terrain Cycle (ATC)<br>5 - Other Vehicular: Unclassified<br>10 - Gunshot Wound<br>11 - Assaults With Blunt Instrument<br>12 - Other Violence<br>13 - Water Sports<br>14 - Field/Track Sports<br>15 - Gymnastic Activities<br>16 - Winter Sports<br>17 - Air Sports<br>18 - Other Sports<br>19 - Fall<br>20 - Hit By Falling/Flying Object<br>21 - Pedestrian<br>22 - Other Unclassified<br>999 - Unknown |
 | `PROBLEMUse`           | `problematic_substance_use` | Interview Question: Substance Problem Use | 0 - No<br>1 - Yes<br>77 - Refused<br>99 - Unknown |
@@ -42,16 +42,16 @@ The following TBIMS variables were proposed as covariates in the survival analys
 
 **FUNCTIONAL INDEPENDENCE AT YEAR 1**
 
-| Original Variable Name | New Variable Name | Variable Label                                | Value Labels |
-|------------------------|-------------------|-----------------------------------------------|--------------|
+| Original Variable Name | New Variable Name | Variable Label                                | Original Value Labels |
+|------------------------|-------------------|-----------------------------------------------|-----------------------|
 | `DRSF`                 | `drs_total_at_followup` | Interview Question: Disability Rating Scale Follow-up  | 999 - Unknown |
 | `FIMTOTF`              | `fim_total_at_followup` | Interview Question: FIM Total (New) Follow-up | 9999 - Unknown |
 | `GOSEF`                 | `gose_total_at_followup` | Interview Question: GOS-E Incl. Expired | 1 - Dead<br>2 - Vegetative State (VS)<br>3 - Lower Severe Disability (LSD)<br>4 - Upper Severe Disability (USD)<br>5 - Lower Moderate Disability (LMD)<br>6 - Upper Moderate Disability (UMD)<br>7 - Lower Good Recovery (LGR)<br>8 - Upper Good Recovery <UGR)<br>66 - Variable Did Not Exist<br>99 - Unknown |
 
 **DEPRESSION AT YEAR 1**
 
-| Original Variable Name | New Variable Name | Variable Label                                | Value Labels |
-|------------------------|-------------------|-----------------------------------------------|--------------|
+| Original Variable Name | New Variable Name | Variable Label                                | Original Value Labels |
+|------------------------|-------------------|-----------------------------------------------|-----------------------|
 | `SuicideF`             | `suicide_attempt_hx_past_year_at_followup` | Interview Question: In the past year, have you attempted suicide? | 0 - No<br>1 - Yes<br>66 - Variable Did Not Exist<br>77 - Refused<br>88 - Not Applicable: Variable not due this year<br>99 - Unknown |
 | `PHQPleasureF`         | `phq1` | Interview Question: a. Little interest or pleasure in doing things | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
 | `PHQDownF`             | `phq2` | Interview Question: b. Feeling down, depressed, or hopeless | 0 - Not at All<br>1 - Several Days<br>2 - More Than Half of the Days<br>3 - Nearly Every Day<br>66 - Variable Did Not Exist<br>81 - Not Applicable<br>82 - Not Applicable: No data from person with TBI<br>99 - Unknown |
@@ -65,9 +65,9 @@ The following TBIMS variables were proposed as covariates in the survival analys
 
 ### Additional TBIMS Variables
 
-| Original Variable Name | New Variable Name | Variable Label                                | Value Labels |
-|------------------------|-------------------|-----------------------------------------------|--------------|
-| `Mod1id`               | `id`              | Interview Question: ID Number for Participant Record |       |
+| Original Variable Name | New Variable Name | Variable Label                                       | Original Value Labels |
+|------------------------|-------------------|------------------------------------------------------|-----------------------|
+| `Mod1id`               | `id`              | Interview Question: ID Number for Participant Record |                       |
 | `FollowUpPeriod`       | `data_collection_period` | Interview Question: Follow-up period | 1 - Year 1<br>2 - Year 2<br>5 - Year 5<br>10 - Year 10<br>15 - Year 15<br>20 - Year 20<br>25 - Year 25<br>30 - Year 30<br>35 - Year 35 |
 | `Birth`                | `date_of_birth`   | Interview Question: What is your date of birth?      | 9999-09-09 - Unknown |
 | `Injury`               | `date_of_injury`  | Interview Question: Date of injury | 9999-09-09 - Unknown |
@@ -89,6 +89,7 @@ The provided scripts should be run in the sequential order specified by the file
 ### Tools and Packages
 This project uses the following R packages:
 - [`survival`](https://github.com/therneau/survival)
+- [`survminer`](https://github.com/kassambara/survminer)
 
 ### References and Documentation
 Access and use of the [TBIMS National Database](https://www.tbindsc.org/) (NDB) data is governed by the TBIMS standard operating procedures.
