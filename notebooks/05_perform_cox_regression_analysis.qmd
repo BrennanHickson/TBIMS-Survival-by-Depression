@@ -609,14 +609,14 @@ gtsave(tbl_nested_models, here(tables_dir, "table_2_nested_cox_regression_models
 ```{r Display and Save Cox Proportional Hazards Model Results in Separate Summary Tables}
 # Function to create and customize the gtsummary table
 create_summary_table <- function(model, var_name_mapping) {
-  tbl <- tbl_regression(model, exponentiate = TRUE) |>
-    modify_header(label ~ "**Characteristic**") |> # Bold the header
-    bold_labels() # Bold the variable names
-    # modify_footnote(label ~ "Custom labels applied.") # Add a footnote
+  tbl <- tbl_regression(model, exponentiate = TRUE) %>%
+    modify_header(label ~ "**Characteristic**") %>%  # Bold the header
+    bold_labels() %>%                             # Bold the variable names
+    modify_fmt_fun(p.value ~ function(x) ifelse(x < 0.05, paste0("<b>", formatC(x, format = "f", digits = 3), "</b>"), formatC(x, format = "f", digits = 3))) # Format p-values
 
   for (old_name in names(var_name_mapping)) {
     new_name <- var_name_mapping[[old_name]]
-    tbl <- tbl |> 
+    tbl <- tbl %>%
       modify_table_body(
         ~ .x %>% mutate(label = ifelse(label == old_name, new_name, label))
       )
@@ -1248,6 +1248,8 @@ gg.surv.model5 <- surv_model_5 |>
     xlim = c(0, 5), # Limit x-axis to 5 years
     ylim = c(crop, 1),
     palette = c("#90cbf9", "#2196f3", "#114b7a"),
+    risk.table = TRUE,  # Add this line to display the risk set size
+    # risk.table.height = 0.25,  # Adjust the height of the risk table
     ggtheme = theme_classic(),
   ) +
   labs(linetype = "Sex", color = "Depression Level at Year 1") +
@@ -1256,6 +1258,20 @@ gg.surv.model5 <- surv_model_5 |>
 ggsave(here(survival_curves_plots_dir, "figure_19-2_kaplan_meier_curves_model_5_5_year_followup.png"),
        gg.surv.model5, dpi = 300)
 ```
+
+```{r Plot the Survival Curves with Risk Set, include = FALSE}
+# Fit the Kaplan-Meier survival curve based on the Cox model
+surv_fit <- survfit(model_5)
+
+# Plot the Kaplan-Meier curve with ggplot2
+ggsurvplot(surv_fit, data = complete_cases_all, 
+           risk.table = TRUE, # Add risk table
+           conf.int = TRUE, # Add confidence interval
+           pval = TRUE, # Add p-value
+           ggtheme = theme_classic(), # Use minimal theme for plot
+           palette = "Dark2") # Use Dark2 color palette
+```
+
 
 ```{r Create Forest Plot of Model 5 Results (Approach 1: forestplot)}
 # Extract model summary
