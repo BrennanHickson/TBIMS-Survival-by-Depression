@@ -1238,7 +1238,7 @@ gg.surv.model5 <- surv_model_5 |>
     color = "depression_level_at_year_1",
     linetype = "sex",
     #title = "Effect of Depression Level at Year 1 on Survival",
-    xlab = "Time After X (years)",
+    xlab = "Time After Initial Interview (years)",
     ylab = "Survival Probability",
     legend = c(0.175, 0.175),
     conf.int = FALSE,
