@@ -165,52 +165,52 @@ var_name_mapping <- c(
 ```
 
 ```{r Adjust the Levels of the Factor Variables and Set Preferred Reference Groups}
-# Adjust the levels of the factor variables
-analytic_data_final <- analytic_data_final |>
-  mutate(
-    depression_level_at_year_1 = factor(depression_level_at_year_1,
-                                        levels = c("No Depression",
-                                                   "Minor Depression",
-                                                   "Major Depression")),
-    mental_health_tx_hx = factor(mental_health_tx_hx,
-                                 levels = c("Denied any history of mental health treatment",
-                                            "Mental health treatment received prior to year preceding index injury only",
-                                            "Mental health treatment received within year preceding index injury")),
-    psych_hosp_hx = factor(psych_hosp_hx,
-                           levels = c("Denied any history of psychiatric hospitalization",
-                                      "Psychiatric hospital admission prior to year preceding index injury only",
-                                      "Psychiatric hospital admission within year preceding index injury")),
-    suicide_attempt_hx = factor(suicide_attempt_hx, 
-                                levels = c("Denied any history of suicide attempt", 
-                                           "Suicide attempt history prior to injury", 
-                                           "Suicide attempt in the first year post-injury")),
-    sex = factor(sex, 
-                 levels = c("Male", "Female")),
-    employment_at_injury = factor(employment_at_injury, 
-                                  levels = c("Competitively Employed", 
-                                             "Unemployed", 
-                                             "Student", 
-                                             "Retired", 
-                                             "Other")),
-    marital_status_at_injury = factor(marital_status_at_injury,
-                                      levels = c("Single",
-                                                 "Married",
-                                                 "Divorced",
-                                                 "Other")),
-    rehab_payor_primary_type = factor(rehab_payor_primary_type, 
-                                      levels = c("Non-Medicaid", "Medicaid")),
-    cause_of_injury = factor(cause_of_injury,
-                             levels = c("Vehicular",
-                                        "Falls",
-                                        "Violence",
-                                        "Other")),
-    problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
-                                                 levels = c("No",
-                                                            "Yes")),
-    problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
-                                                 levels = c("No",
-                                                            "Yes"))
-  )
+# # Adjust the levels of the factor variables
+# analytic_data_final <- analytic_data_final |>
+#   mutate(
+#     depression_level_at_year_1 = factor(depression_level_at_year_1,
+#                                         levels = c("No Depression",
+#                                                    "Minor Depression",
+#                                                    "Major Depression")),
+#     mental_health_tx_hx = factor(mental_health_tx_hx,
+#                                  levels = c("Denied any history of mental health treatment",
+#                                             "Mental health treatment received prior to year preceding index injury only",
+#                                             "Mental health treatment received within year preceding index injury")),
+#     psych_hosp_hx = factor(psych_hosp_hx,
+#                            levels = c("Denied any history of psychiatric hospitalization",
+#                                       "Psychiatric hospital admission prior to year preceding index injury only",
+#                                       "Psychiatric hospital admission within year preceding index injury")),
+#     suicide_attempt_hx = factor(suicide_attempt_hx, 
+#                                 levels = c("Denied any history of suicide attempt", 
+#                                            "Suicide attempt history prior to injury", 
+#                                            "Suicide attempt in the first year post-injury")),
+#     sex = factor(sex, 
+#                  levels = c("Male", "Female")),
+#     employment_at_injury = factor(employment_at_injury, 
+#                                   levels = c("Competitively Employed", 
+#                                              "Unemployed", 
+#                                              "Student", 
+#                                              "Retired", 
+#                                              "Other")),
+#     marital_status_at_injury = factor(marital_status_at_injury,
+#                                       levels = c("Single",
+#                                                  "Married",
+#                                                  "Divorced",
+#                                                  "Other")),
+#     rehab_payor_primary_type = factor(rehab_payor_primary_type, 
+#                                       levels = c("Non-Medicaid", "Medicaid")),
+#     cause_of_injury = factor(cause_of_injury,
+#                              levels = c("Vehicular",
+#                                         "Falls",
+#                                         "Violence",
+#                                         "Other")),
+#     problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
+#                                                  levels = c("No",
+#                                                             "Yes")),
+#     problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
+#                                                  levels = c("No",
+#                                                             "Yes"))
+#   )
 ```
 
 ```{r Prepare Table-Specific Data Frames}
@@ -275,10 +275,6 @@ incomplete_cases_select_1 <- analytic_data_for_cc_select_1[!complete.cases(analy
 ```
 
 ```{r Table 1-1-1: Generate descriptive statistics table for the full analytic sample with all proposed covariates}
-# # Convert calendar year of injury to numeric to treat it as continuous rather than categorical
-# analytic_data_for_tables_all$calendar_year_of_injury <- as.numeric(analytic_data_for_tables_all$calendar_year_of_injury)
-# analytic_data_for_tables_all$gose_total_at_year_1 <- as.numeric(analytic_data_for_tables_all$gose_total_at_year_1)
-
 # Handle missing values in depression_level_at_year_1
 analytic_data_for_tables_all <- analytic_data_for_tables_all |>
   mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, level = "Missing"))
