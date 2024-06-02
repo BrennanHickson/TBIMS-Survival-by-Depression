@@ -14,7 +14,7 @@ if (!requireNamespace("pacman", quietly = TRUE)) {
 }
 
 # Install and load prerequisite libraries
-pacman::p_load(autoReg, broom, corrplot, extrafont, forestplot, gridExtra, gtsummary, here, scales, showtext, survival, survminer, tidyverse)
+pacman::p_load(autoReg, broom, corrplot, extrafont, forestplot, gridExtra, gt, gtsummary, here, scales, showtext, survival, survminer, tidyverse)
 
 # Create the 'data/processed' subdirectory if not already accessible
 data_processed_dir <- here("data", "processed")
@@ -59,61 +59,14 @@ if (!dir.exists(survival_curves_plots_dir)) {
 }
 
 # Load the .rds files
-complete_cases_all <- readRDS(file.path(data_processed_dir, "archived/05-31-2024 (5-Year Follow-Up)/complete_cases_all.rds"))
+complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all_5_year_followup.rds"))
+# complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all_10_year_followup.rds"))
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
 
 # Set a random seed for reproducibility
 set.seed(42)
-```
-
-```{r Relevel the Factor Variables and Select Preferred Reference Groups}
-complete_cases_all <- complete_cases_all |>
-  mutate(
-    depression_level_at_year_1 = factor(depression_level_at_year_1,
-                                        levels = c("No Depression",
-                                                   "Minor Depression",
-                                                   "Major Depression")),
-    mental_health_tx_hx = factor(mental_health_tx_hx,
-                                 levels = c("Denied any history of mental health treatment",
-                                            "Mental health treatment received prior to year preceding index injury only",
-                                            "Mental health treatment received within year preceding index injury")),
-    psych_hosp_hx = factor(psych_hosp_hx,
-                           levels = c("Denied any history of psychiatric hospitalization",
-                                      "Psychiatric hospital admission prior to year preceding index injury only",
-                                      "Psychiatric hospital admission within year preceding index injury")),
-    suicide_attempt_hx = factor(suicide_attempt_hx, 
-                                levels = c("Denied any history of suicide attempt", 
-                                           "Suicide attempt history prior to injury", 
-                                           "Suicide attempt in the first year post-injury")),
-    sex = factor(sex, 
-                 levels = c("Male", "Female")),
-    employment_at_injury = factor(employment_at_injury, 
-                                  levels = c("Competitively Employed", 
-                                             "Unemployed", 
-                                             "Student", 
-                                             "Retired", 
-                                             "Other")),
-    marital_status_at_injury = factor(marital_status_at_injury,
-                                      levels = c("Single",
-                                                 "Married",
-                                                 "Divorced",
-                                                 "Other")),
-    rehab_payor_primary_type = factor(rehab_payor_primary_type, 
-                                      levels = c("Non-Medicaid", "Medicaid")),
-    cause_of_injury = factor(cause_of_injury,
-                             levels = c("Vehicular",
-                                        "Falls",
-                                        "Violence",
-                                        "Other")),
-    problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
-                                                 levels = c("No",
-                                                            "Yes")),
-    problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
-                                                 levels = c("No",
-                                                            "Yes"))
-  )
 ```
 
 # Define the Covariate Groups for Nested Models
@@ -137,7 +90,7 @@ all_proposed_clinical_vars <- c("cause_of_injury",
                                 "problematic_substance_use_at_injury", 
                                 "problematic_substance_use_at_year_1")
 
-all_proposed_functional_vars <- c("func_score_at_year_1")
+all_proposed_functional_vars <- "func_score_at_year_1"
 
 # Define the selected covariate groups
 select_depression_vars <- c("depression_level_at_year_1",
@@ -158,9 +111,9 @@ all_proposed_covariates <- c(all_proposed_mental_health_covariates,
                              all_proposed_functional_vars)
 ```
 
-```{r Define the Preferred Variable Labels for the Covariates, include=FALSE}
-# Create a variable name mapping of original variable names to preferred labels
-name_mapping <- c(
+```{r Define the Preferred Variable Labels for the Covariates of Interest}
+# Define the preferred variable labels for all covariates
+var_name_mapping <- c(
   depression_level_at_year_1 = "Depression Level at Year 1",
   mental_health_tx_hx = "History of Mental Health Treatment",
   psych_hosp_hx = "History of Psychiatric Hospitalization",
@@ -175,9 +128,6 @@ name_mapping <- c(
   cause_of_injury = "Mechanism of Injury",
   problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
   problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-  # drs_total_at_year_1 = "DRS Total at Year 1",
-  # fim_total_at_year_1 = "FIM Total at Year 1",
-  # gose_total_at_year_1 = "GOS-E Total at Year 1",
   func_score_at_year_1 = "Function Factor Score at Year 1"
 )
 ```
@@ -282,7 +232,7 @@ plot_schoenfeld_combined_layout <- function(cox_zph_fit, var_number, var_label) 
 
 ```{r Define a Function to Map Original Variable Names to Preferred Labels}
 # Define a function to map original variable names to preferred labels
-get_var_labels <- function(model, name_mapping) {
+get_var_labels <- function(model, var_name_mapping) {
   # Extract the variable names from the model coefficients
   var_names <- names(coef(model))
   
@@ -295,17 +245,17 @@ get_var_labels <- function(model, name_mapping) {
     # Split the variable name on ':' and ' ' to handle interaction terms and factor levels
     split_name <- unlist(strsplit(var_name, split = ":| ", perl = TRUE))
     
-    # Attempt to match each part of the split name with keys in the name_mapping
+    # Attempt to match each part of the split name with keys in the var_name_mapping
     label_parts <- sapply(split_name, function(part) {
-      # Check if the part directly matches a key in the name_mapping
-      if (part %in% names(name_mapping)) {
-        return(name_mapping[part])
+      # Check if the part directly matches a key in the var_name_mapping
+      if (part %in% names(var_name_mapping)) {
+        return(var_name_mapping[part])
       } else {
         # If the part is a level of a factor, construct the key to find its label
-        possible_keys <- grep(part, names(name_mapping), value = TRUE)
+        possible_keys <- grep(part, names(var_name_mapping), value = TRUE)
         if (length(possible_keys) > 0) {
           # Return the first match found
-          return(name_mapping[possible_keys[1]])
+          return(var_name_mapping[possible_keys[1]])
         } else {
           # If no direct match or constructed key is found, return the part as is
           return(part)
@@ -326,7 +276,7 @@ get_var_labels <- function(model, name_mapping) {
 
 ```{r Define a Function to Create and Save the Schoenfeld Residual Plots for a Specified Model}
 # Define a function to create and save the Schoenfeld residual plots for a specified model
-save_schoenfeld_residuals_plots <- function(model, model_number, name_mapping, plot_width = 7, plot_height = 5.5) {
+save_schoenfeld_residuals_plots <- function(model, model_number, var_name_mapping, plot_width = 7, plot_height = 5.5) {
   # Ensure schoenfeld_residuals_plots_dir is predefined or passed as a parameter
   schoenfeld_residuals_plots_dir <- "output/plots/schoenfeld_residuals"
   
@@ -334,7 +284,7 @@ save_schoenfeld_residuals_plots <- function(model, model_number, name_mapping, p
   cox_zph_fit <- cox.zph(model)
   
   # Get the variable labels for the model
-  var_labels <- get_var_labels(model, name_mapping)
+  var_labels <- get_var_labels(model, var_name_mapping)
   
   # Ensure var_labels align with cox_zph_fit results
   if (length(var_labels) != length(cox_zph_fit$table)) {
@@ -488,13 +438,6 @@ univariate_cox_models <- function(variables, data) {
 ```
 
 ```{r Fit the Univariate Models and Print Results Summaries}
-# Convert 'event_status' to numeric
-if (!is.numeric(complete_cases_all$event_status)) {
-  complete_cases_all$event_status <- as.numeric(as.character(complete_cases_all$event_status))
-}
-
-model_1 <- coxph(Surv(time_to_event_in_years, event_status) ~ depression_level_at_year_1, complete_cases_all)
-
 univariate_cox_models(all_proposed_mental_health_covariates, complete_cases_all)
 univariate_cox_models(all_proposed_sociodemographic_vars, complete_cases_all)
 univariate_cox_models(all_proposed_clinical_vars, complete_cases_all)
@@ -529,7 +472,10 @@ In our case, `time` is represented by the `time_to_event_in_years` variable (whi
 
 To fit the nested models, we'll apply the `Surv(time, status) ~ covariate1 + covariate2 + covariate3...` formula incrementally to previously fitted models. In other words, Model 2 will contain the Model 1 covariate (i.e., depression_level_at_year_1) and all other mental health-related covariates; Model 3 will contain all Model 2 covariates plus the sociodemographic variables; Model 4 will contain all Model 3 covariates plus the clinical variables; and Model 5 will contain all Model 4 covariates plus the function factor score variable.
 
-```{r Models 2-5: Fit the Multivariable Models for All Proposed Covariates}
+```{r Models 1-5: Fit the Multivariable Models for All Proposed Covariates}
+# Fit Model 1: Depression Level at Year 1
+model_1 <- coxph(Surv(time_to_event_in_years, event_status) ~ depression_level_at_year_1, complete_cases_all)
+
 # Fit Model 2: Mental Health-Related Covariates
 model_2_formula <- as.formula(paste('Surv(time_to_event_in_years, event_status) ~', 
                                     paste(all_proposed_mental_health_covariates, collapse = " + ")))
@@ -578,66 +524,83 @@ print(rounded_summary_model_5)
 # print(rounded_summary_model_6)
 ```
 
-```{r}
+```{r Display and Save Multivariable Cox Proportional Hazards Model Results in a Nested Summary Table}
 # Create gtsummary Tables with modified variable labels
-tbl_model_2 <- tbl_regression(model_2, exponentiate = TRUE, label = name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+tbl_model_1 <- tbl_regression(model_1, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+  # modify_header(label ~ "**Model 1: Depression Level at Year 1**") |>
+  modify_header(p.value ~ "**_p_**") |>
+  bold_labels() |>
+  bold_p()
+
+tbl_model_2 <- tbl_regression(model_2, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
   # modify_header(label ~ "**Model 2: Mental Health**") |>
+  modify_header(p.value ~ "**_p_**") |>
   bold_labels() |>
   bold_p()
 
-tbl_model_3 <- tbl_regression(model_3, exponentiate = TRUE, label = name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+tbl_model_3 <- tbl_regression(model_3, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
   # modify_header(label ~ "**Model 3: Mental Health + Sociodemographic**") |>
+  modify_header(p.value ~ "**_p_**") |>
   bold_labels() |>
   bold_p()
 
-tbl_model_4 <- tbl_regression(model_4, exponentiate = TRUE, label = name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+tbl_model_4 <- tbl_regression(model_4, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
   # modify_header(label ~ "**Model 4: Mental Health + Sociodemographic + Clinical**") |>
+  modify_header(p.value ~ "**_p_**") |>
   bold_labels() |>
   bold_p()
 
-tbl_model_5 <- tbl_regression(model_5, exponentiate = TRUE, label = name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+tbl_model_5 <- tbl_regression(model_5, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
   # modify_header(label ~ "**Model 5: Mental Health + Sociodemographic + Clinical + Functional**") |>
+  modify_header(p.value ~ "**_p_**") |>
   bold_labels() |>
   bold_p()
 
 # Merge the tables
 tbl_nested_models <- tbl_merge(
-  tbls = list(tbl_model_2, tbl_model_3, tbl_model_4, tbl_model_5),
-  tab_spanner = c("**Model 2**", "**Model 3**", "**Model 4**", "**Model 5**")
+  tbls = list(tbl_model_1, tbl_model_2, tbl_model_3, tbl_model_4, tbl_model_5),
+  tab_spanner = c("**Model 1**", "**Model 2**", "**Model 3**", "**Model 4**", "**Model 5**")
 )
 
-# Convert the merged table
+# Convert the merged table and adjust the font size
 tbl_nested_models <- tbl_nested_models |>
-  as_gt()
+  as_gt() |>
+  gt::tab_options(table.font.size = 'small')
 
 # Save the table
 gtsave(tbl_nested_models, here(tables_dir, "table_2_nested_cox_regression_models.png"))
 ```
 
-
-```{r}
+```{r Display and Save Cox Proportional Hazards Model Results in Separate Summary Tables}
 # Function to create and customize the gtsummary table
-create_summary_table <- function(model, name_mapping) {
+create_summary_table <- function(model, var_name_mapping) {
   tbl <- tbl_regression(model, exponentiate = TRUE) |>
-    modify_header(label ~ "**Variable**") |> # Bold the header
-    bold_labels() |> # Bold the variable names
-    modify_footnote(label ~ "Custom labels applied.") # Optional: add a footnote
+    modify_header(label ~ "**Characteristic**") |> # Bold the header
+    bold_labels() # Bold the variable names
+    # modify_footnote(label ~ "Custom labels applied.") # Add a footnote
 
-  for (old_name in names(name_mapping)) {
-    new_name <- name_mapping[[old_name]]
+  for (old_name in names(var_name_mapping)) {
+    new_name <- var_name_mapping[[old_name]]
     tbl <- tbl |> 
-      update_cols(all_of(old_name), label = new_name) 
+      modify_table_body(
+        ~ .x %>% mutate(label = ifelse(label == old_name, new_name, label))
+      )
   }
   return(tbl)
 }
 
-# Summarize the models using tbl_regression from gtsummary and apply custom labels
-summary_model_2 <- create_summary_table(model_2, name_mapping)
-summary_model_3 <- create_summary_table(model_3, name_mapping)
-summary_model_4 <- create_summary_table(model_4, name_mapping)
-summary_model_5 <- create_summary_table(model_5, name_mapping)
+# Summarize the models using tbl_regression from gtsummary and apply custom variable labels
+summary_model_1 <- create_summary_table(model_1, var_name_mapping)
+summary_model_2 <- create_summary_table(model_2, var_name_mapping)
+summary_model_3 <- create_summary_table(model_3, var_name_mapping)
+summary_model_4 <- create_summary_table(model_4, var_name_mapping)
+summary_model_5 <- create_summary_table(model_5, var_name_mapping)
 
-# Optionally, you can modify and print the tables with gt
+# Modify and print the tables with gt
+gt_summary_model_1 <- summary_model_1 |>
+  as_gt() |>
+  gt::tab_options(table.font.size = 'small')
+
 gt_summary_model_2 <- summary_model_2 |> 
   as_gt() |> 
   gt::tab_options(table.font.size = 'small')
@@ -655,17 +618,19 @@ gt_summary_model_5 <- summary_model_5 |>
   gt::tab_options(table.font.size = 'small')
 
 # Print the summaries
+print(gt_summary_model_1)
 print(gt_summary_model_2)
 print(gt_summary_model_3)
 print(gt_summary_model_4)
 print(gt_summary_model_5)
 
-# Save the Cox proportional hazards model as an R object
-saveRDS(model_2, here(data_processed_dir, "cox_model_2.rds"))
-saveRDS(model_3, here(data_processed_dir, "cox_model_3.rds"))
-saveRDS(model_4, here(data_processed_dir, "cox_model_4.rds"))
-saveRDS(model_5, here(data_processed_dir, "cox_model_5.rds"))
-# saveRDS(model_6, here(data_processed_dir, "cox_model_6.rds"))
+# Save the Cox proportional hazards models as R objects
+saveRDS(model_1, here(data_processed_dir, "cox_model_1_5_year_followup.rds"))
+saveRDS(model_2, here(data_processed_dir, "cox_model_2_5_year_followup.rds"))
+saveRDS(model_3, here(data_processed_dir, "cox_model_3_5_year_followup.rds"))
+saveRDS(model_4, here(data_processed_dir, "cox_model_4_5_year_followup.rds"))
+saveRDS(model_5, here(data_processed_dir, "cox_model_5_5_year_followup.rds"))
+# saveRDS(model_6, here(data_processed_dir, "cox_model_6_5_year_followup.rds"))
 ```
 
 ### Assess Multicollinearity
@@ -698,7 +663,7 @@ model_5_vif <- lm(event_status ~ depression_level_at_year_1 + mental_health_tx_h
                   data = complete_cases_all)
 
 # Create a gtsummary table for the model
-vif_table <- tbl_regression(model_5_vif, label = name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+vif_table <- tbl_regression(model_5_vif, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
   modify_header(label ~ "**VIF Summary Table**") |>
   bold_labels() |>
   bold_p() |>
@@ -726,8 +691,8 @@ correlation_matrix <- cor(numeric_predictors, use = "complete.obs")
 print(correlation_matrix)
 
 # Rename the correlation matrix variable names
-colnames(correlation_matrix) <- name_mapping[colnames(correlation_matrix)]
-rownames(correlation_matrix) <- name_mapping[rownames(correlation_matrix)]
+colnames(correlation_matrix) <- var_name_mapping[colnames(correlation_matrix)]
+rownames(correlation_matrix) <- var_name_mapping[rownames(correlation_matrix)]
 
 # Generate a color palette for the correlation matrix
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
@@ -1153,7 +1118,7 @@ gg.surv.model1 <- surv_model_1 |>
   ggsurvplot_df(
     surv.geom = geom_line,
     color = "depression_level_at_year_1",
-    xlab = "Time Post-Injury (years)",
+    xlab = "Time After Initial Interview (years)",
     ylab = "Survival Probability",
     legend.title = "Depression Level at Year 1",
     # legend.labs = c("No Depression", "Minor Depression", "Major Depression"),
@@ -1161,8 +1126,8 @@ gg.surv.model1 <- surv_model_1 |>
     conf.int = FALSE,
     censor = FALSE,
     surv.scale = "percent",
-    break.time.by = 2, 
-    xlim = c(0, 10), # Limit x-axis to 10 years
+    break.time.by = 1, 
+    xlim = c(0, 5), # Limit x-axis to 10 years
     ylim = c(crop, 1),
     palette = c("#90cbf9", "#2196f3", "#114b7a"),
     ggtheme = theme_classic(),
@@ -1184,7 +1149,7 @@ gg.surv.model5 <- surv_model_5 |>
     color = "depression_level_at_year_1",
     linetype = "sex",
     #title = "Effect of Depression Level at Year 1 on Survival",
-    xlab = "Time Post-Injury (years)",
+    xlab = "Time After Initial Interview (years)",
     ylab = "Survival Probability",
     legend = c(0.175, 0.175),
     conf.int = FALSE,
@@ -1205,7 +1170,7 @@ ggsave(here(survival_curves_plots_dir, "figure_19-2_kaplan_meier_curves_model_5.
 
 ```{r}
 # Define the mapping of original variable names to display names
-variable_name_mapping <- c(
+variable_var_name_mapping <- c(
   "depression_level_at_year_1Minor Depression" = "Depression Level at Year 1: Minor Depression",
   "depression_level_at_year_1Major Depression" = "Depression Level at Year 1: Major Depression",
   "mental_health_tx_hxMental health treatment received prior to year preceding index injury only" =
@@ -1255,10 +1220,10 @@ table_data <- data.frame(
 )
 
 # Replace the variable names with the display names
-table_data$Variable <- variable_name_mapping[table_data$Variable]
+table_data$Variable <- variable_var_name_mapping[table_data$Variable]
 
 # Handle any variables that may not have a mapping defined
-table_data$Variable[is.na(table_data$Variable)] <- rownames(coef)[is.na(variable_name_mapping[rownames(coef)])]
+table_data$Variable[is.na(table_data$Variable)] <- rownames(coef)[is.na(variable_var_name_mapping[rownames(coef)])]
 
 # Format the table for the forest plot
 table_text <- cbind(
