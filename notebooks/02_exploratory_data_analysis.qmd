@@ -29,7 +29,8 @@ if (!dir.exists(missingness_plots_dir)) {
 }
 
 # Load the .rds files
-analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final.rds"))
+analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_5_year_followup.rds"))
+# analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_10_year_followup.rds"))
 
 # Convert 'analytic_data_final' to a data frame
 analytic_data_final <- as.data.frame(analytic_data_final)
@@ -105,7 +106,7 @@ select_covariates_1 <- c("id",
 
 ```{r Define the Preferred Variable Labels for the Covariates of Interest}
 # Define the preferred variable labels for all covariates
-all_proposed_covariates_labels <- c(
+var_name_mapping <- c(
   depression_level_at_year_1 = "Depression Level at Year 1",
   calendar_year_of_injury = "Calendar Year of Injury",
   sex = "Sex",
@@ -133,24 +134,24 @@ all_proposed_covariates_labels <- c(
   suicide_attempt_hx = "History of Suicide Attempt"
 )
 
-# Define the preferred variable labels for select covariates 1 (excludes individual function [i.e., DRS, FIM, GOS-E] scores)
-select_covariates_1_labels <- c(
-  depression_level_at_year_1 = "Depression Level at Year 1",
-  calendar_year_of_injury = "Calendar Year of Injury",
-  sex = "Sex",
-  age_at_injury = "Age at Injury",
-  education_level_at_injury = "Educational Attainment at Injury",
-  employment_at_injury = "Employment Status at Injury",
-  marital_status_at_injury = "Marital Status at Injury",
-  rehab_payor_primary_type = "Medicaid Status",
-  cause_of_injury = "Mechanism of Injury",
-  func_score_at_year_1 = "Function Factor Score at Year 1",
-  mental_health_tx_hx = "History of Mental Health Treatment",
-  psych_hosp_hx = "History of Psychiatric Hospitalization",
-  problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
-  problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-  suicide_attempt_hx = "History of Suicide Attempt"
-)
+# # Define the preferred variable labels for select covariates 1 (excludes individual function [i.e., DRS, FIM, GOS-E] scores)
+# select_covariates_1_labels <- c(
+#   depression_level_at_year_1 = "Depression Level at Year 1",
+#   calendar_year_of_injury = "Calendar Year of Injury",
+#   sex = "Sex",
+#   age_at_injury = "Age at Injury",
+#   education_level_at_injury = "Educational Attainment at Injury",
+#   employment_at_injury = "Employment Status at Injury",
+#   marital_status_at_injury = "Marital Status at Injury",
+#   rehab_payor_primary_type = "Medicaid Status",
+#   cause_of_injury = "Mechanism of Injury",
+#   func_score_at_year_1 = "Function Factor Score at Year 1",
+#   mental_health_tx_hx = "History of Mental Health Treatment",
+#   psych_hosp_hx = "History of Psychiatric Hospitalization",
+#   problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+#   problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+#   suicide_attempt_hx = "History of Suicide Attempt"
+# )
 ```
 
 ```{r Prepare the Data Frames with the Covariates of Interest for Tables and Plots}
@@ -351,8 +352,8 @@ na_counts_for_all_proposed_covariates <- prepare_na_counts_df(all_proposed_covar
 na_counts_for_select_covariates_1 <- prepare_na_counts_df(select_covariates_1_for_plots)
 
 # Save the NA counts data frames in single .rds files
-saveRDS(na_counts_for_all_proposed_covariates, here(data_processed_dir, "na_counts_for_all_proposed_covariates.rds"))
-saveRDS(na_counts_for_select_covariates_1, here(data_processed_dir, "na_counts_for_select_covariates_1.rds"))
+saveRDS(na_counts_for_all_proposed_covariates, here(data_processed_dir, "na_counts_for_all_proposed_covariates_5_year_followup.rds"))
+saveRDS(na_counts_for_select_covariates_1, here(data_processed_dir, "na_counts_for_select_covariates_1_5_year_followup.rds"))
 ```
 
 ## Plot the Number of Missing Values
@@ -365,36 +366,7 @@ figure_17_1 <- gg_miss_var(all_proposed_covariates_for_plots) +
   labs(x = "Covariates",
        y = "Number of Missing Values"
   ) +
-  scale_x_discrete(
-    labels = c(
-      calendar_year_of_injury = "Calendar Year of Injury",
-      sex = "Sex",
-      age_at_injury = "Age at Injury",
-      education_level_at_injury = "Educational Attainment at Injury",
-      employment_at_injury = "Employment Status at Injury",
-      marital_status_at_injury = "Marital Status at Injury",
-      rehab_payor_primary = "Primary Rehabilitation Payor",
-      rehab_payor_primary_type = "Medicaid Status",
-      cause_of_injury = "Mechanism of Injury",
-      drs_total_at_year_1 = "DRS Score at Year 1",
-      fim_total_at_year_1 = "FIM Score at Year 1",
-      gose_total_at_year_1 = "GOS-E Score at Year 1",
-      func_score_at_year_1 = "Function Factor Score at Year 1",
-      mental_health_tx_lifetime_at_injury = "Lifetime History of Mental Health Treatment at Injury",
-      mental_health_tx_past_year_at_injury = "Past-Year History of Mental Health Treatment at Injury",
-      mental_health_tx_hx = "History of Mental Health Treatment",
-      psych_hosp_hx_lifetime_at_injury = "Lifetime History of Psychiatric Hospitalization at Injury",
-      psych_hosp_hx_past_year_at_injury = "Past-Year History of Psychiatric Hospitalization at Injury",
-      psych_hosp_hx = "History of Psychiatric Hospitalization",
-      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
-      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
-      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
-      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
-      suicide_attempt_hx = "History of Suicide Attempt",
-      depression_level_at_year_1 = "Depression Level at Year 1"
-    )
-  ) +
+  scale_x_discrete(labels = var_name_mapping) +
   scale_y_continuous(labels = label_comma()) +
   theme_classic() +
   customization +
@@ -421,25 +393,7 @@ figure_17_2 <- gg_miss_var(select_covariates_1_for_plots) +
   labs(x = "Covariates",
        y = "Number of Missing Values"
   ) +
-  scale_x_discrete(
-    labels = c(
-      calendar_year_of_injury = "Calendar Year of Injury",
-      sex = "Sex",
-      age_at_injury = "Age at Injury",
-      education_level_at_injury = "Educational Attainment at Injury",
-      employment_at_injury = "Employment Status at Injury",
-      marital_status_at_injury = "Marital Status at Injury",
-      rehab_payor_primary_type = "Medicaid Status",
-      cause_of_injury = "Mechanism of Injury",
-      func_score_at_year_1 = "Function Factor Score at Year 1",
-      mental_health_tx_hx = "History of Mental Health Treatment",
-      psych_hosp_hx = "History of Psychiatric Hospitalization",
-      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
-      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-      suicide_attempt_hx = "History of Suicide Attempt",
-      depression_level_at_year_1 = "Depression Level at Year 1"
-    )
-  ) +
+  scale_x_discrete(labels = var_name_mapping) +
   scale_y_continuous(labels = label_comma()) +
   theme_classic() +
   customization +
@@ -472,7 +426,7 @@ png(file_path, width = 3500, height = 1600, res = 300)
 
 # Generate the plot
 gg_miss_upset_custom(all_proposed_covariates_for_plots, 
-                     all_proposed_covariates_labels,
+                     var_name_mapping,
                      nsets = 8)
 
 # Close the graphics device
@@ -493,7 +447,7 @@ png(file_path, width = 3500, height = 1600, res = 300)
 
 # Generate the plot
 gg_miss_upset_custom(select_covariates_1_for_plots, 
-                     all_proposed_covariates_labels,
+                     var_name_mapping,
                      nsets = 8)
 
 # Close the graphics device
