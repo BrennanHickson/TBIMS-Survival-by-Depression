@@ -1487,6 +1487,69 @@ match_class <- function(target_col, reference_col) {
 analytic_data_final <- analytic_data_final |>
   mutate(across(everything(), ~ match_class(.x, analytic_data_imputed[[cur_column()]])))
 
+# Adjust the levels of the factor variables
+analytic_data_final <- analytic_data_final |>
+  mutate(
+    depression_level_at_year_1 = factor(depression_level_at_year_1,
+                                        levels = c("No Depression",
+                                                   "Minor Depression",
+                                                   "Major Depression")),
+    sex = factor(sex, 
+                 levels = c("Male", "Female")),
+    employment_at_injury = factor(employment_at_injury, 
+                                  levels = c("Competitively Employed", 
+                                             "Unemployed", 
+                                             "Student", 
+                                             "Retired", 
+                                             "Other")),
+    marital_status_at_injury = factor(marital_status_at_injury,
+                                      levels = c("Single",
+                                                 "Married",
+                                                 "Divorced",
+                                                 "Other")),
+    rehab_payor_primary = factor(rehab_payor_primary,
+                                 levels = c("Private Insurance", "Public Insurance", "Other")),
+    rehab_payor_primary_type = factor(rehab_payor_primary_type, 
+                                      levels = c("Non-Medicaid", "Medicaid")),
+    cause_of_injury = factor(cause_of_injury,
+                             levels = c("Vehicular",
+                                        "Falls",
+                                        "Violence",
+                                        "Other")),
+    mental_health_tx_lifetime_at_injury = factor(mental_health_tx_lifetime_at_injury,
+                                                 levels = c("No", "Yes")),
+    mental_health_tx_past_year_at_injury = factor(mental_health_tx_past_year_at_injury,
+                                                  levels = c("No", "Yes")),
+    mental_health_tx_hx = factor(mental_health_tx_hx,
+                                 levels = c("Denied any history of mental health treatment",
+                                            "Mental health treatment received prior to year preceding index injury only",
+                                            "Mental health treatment received within year preceding index injury")),
+    psych_hosp_hx_lifetime_at_injury = factor(psych_hosp_hx_lifetime_at_injury,
+                                              levels = c("No", "Yes")),
+    psych_hosp_hx_past_year_at_injury = factor(psych_hosp_hx_past_year_at_injury,
+                                               levels = c("No", "Yes")),
+    psych_hosp_hx = factor(psych_hosp_hx,
+                           levels = c("Denied any history of psychiatric hospitalization",
+                                      "Psychiatric hospital admission prior to year preceding index injury only",
+                                      "Psychiatric hospital admission within year preceding index injury")),
+    problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
+                                                 levels = c("No",
+                                                            "Yes")),
+    problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
+                                                 levels = c("No",
+                                                            "Yes")),
+    suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury,
+                                                   levels = c("No", "Yes")),
+    suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury,
+                                                    levels = c("No", "Yes")),
+    suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1,
+                                                    levels = c("No", "Yes")),
+    suicide_attempt_hx = factor(suicide_attempt_hx, 
+                                levels = c("Denied any history of suicide attempt", 
+                                           "Suicide attempt history prior to injury", 
+                                           "Suicide attempt in the first year post-injury"))
+  )
+
 # Save the 'analytic_data_final' data frame in a single .rds file
 saveRDS(analytic_data_final, here(data_processed_dir, "analytic_data_final_5_year_followup.rds"))
 
@@ -1516,7 +1579,7 @@ write.csv(sampled_analytic_data_final, file = "~/Downloads/sampled_analytic_data
 id_list <- analytic_data_final$id
 
 # Use this list of `id`s to filter `merged_data` to include all observations per `id`
-analytic_data_final_long <- merged_data |>
+analytic_data_final_long <- analytic_data_imputed |>
   filter(id %in% id_list)
 
 # Save the 'analytic_data_final' data frame in a single .rds file
