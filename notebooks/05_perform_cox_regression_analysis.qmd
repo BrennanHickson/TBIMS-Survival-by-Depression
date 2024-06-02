@@ -655,20 +655,18 @@ In summary, assessing multicollinearity within the context of Cox regression is 
 
 **Assess Multicollinearity Using VIF:** The `vif` function from the `car` package does not directly accept Cox regression models. Thus, you will need to fit a linear model (or a similar model) using the same covariates to assess multicollinearity. The idea here is not to interpret this linear model but to use it for assessing multicollinearity among covariates.
 
-```{r Assessing Multicollinearity via the Variance Inflation Factor}
-model_5_vif <- lm(event_status ~ depression_level_at_year_1 + mental_health_tx_hx + psych_hosp_hx + suicide_attempt_hx +
-                    calendar_year_of_injury + age_at_injury + sex + education_level_at_injury + employment_at_injury + 
-                    marital_status_at_injury + rehab_payor_primary_type + cause_of_injury + problematic_substance_use_at_injury +
-                    problematic_substance_use_at_year_1 + func_score_at_year_1,
+```{r Assess Multicollinearity via the Variance Inflation Factor}
+# Define the VIF model using all proposed covariates
+model_5_vif <- lm(as.formula(paste("event_status ~", paste(all_proposed_covariates, collapse = " + "))), 
                   data = complete_cases_all)
 
 # Create a gtsummary table for the model
 vif_table <- tbl_regression(model_5_vif, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
-  modify_header(label ~ "**VIF Summary Table**") |>
+  modify_header(label ~ "**VIF Summary Table**", p.value ~ "**_p_**") |>
   bold_labels() |>
   bold_p() |>
-  add_vif() |>  # Add VIF values
-  as_gt()  # Convert the gtsummary object to a gt table
+  add_vif() |>
+  as_gt()
 
 # Define the file path using here() and save the gt table as a PNG file
 gtsave(vif_table, here(tables_dir, "table_3_vif_summary_table.png"))
@@ -678,9 +676,14 @@ vif_values <- car::vif(model_5_vif)
 print(vif_values)
 ```
 
-```{r Assessing Multicollinearity via the Correlation Matrix}
+```{r Assess Multicollinearity via the Correlation Matrix}
 predictors <- complete_cases_all |>
-  select(-time_to_event_in_years, -event_status)  # Exclude the survival object variables
+  select(-id, -event_status, -time_to_event_in_years, -rehab_payor_primary,
+         -drs_total_at_year_1, -fim_total_at_year_1, -gose_total_at_year_1,
+         -mental_health_tx_lifetime_at_injury, -mental_health_tx_past_year_at_injury,
+         -psych_hosp_hx_lifetime_at_injury, -psych_hosp_hx_past_year_at_injury,
+         -suicide_attempt_hx_lifetime_at_injury, -suicide_attempt_hx_past_year_at_injury,
+         -suicide_attempt_hx_past_year_at_year_1)  # Exclude the survival object variables and non-model covariates
 
 # Select only numeric columns
 numeric_predictors <- predictors |>
@@ -708,7 +711,6 @@ corrplot(correlation_matrix, method = "shade", shade.col = NA, tl.col = "black",
          col = col(200), addCoef.col = "black", cl.pos = "n", order = "AOE")
 dev.off()
 ```
-
 
 **Interpretation of VIF Values:**
 
