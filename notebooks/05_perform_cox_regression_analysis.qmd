@@ -14,7 +14,7 @@ if (!requireNamespace("pacman", quietly = TRUE)) {
 }
 
 # Install and load prerequisite libraries
-pacman::p_load(autoReg, broom, corrplot, extrafont, forestplot, gridExtra, gt, gtsummary, here, scales, showtext, survival, survminer, tidyverse)
+pacman::p_load(autoReg, broom, corrplot, extrafont, forestplot, gridExtra, gt, gtsummary, here, patchwork, scales, showtext, survival, survminer, tidyverse)
 
 # Create the 'data/processed' subdirectory if not already accessible
 data_processed_dir <- here("data", "processed")
@@ -130,6 +130,40 @@ var_name_mapping <- c(
   problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
   func_score_at_year_1 = "Function Factor Score at Year 1",
   GLOBAL = "GLOBAL"
+)
+
+# Define the preferred variable labels for all covariates and all factor levels
+forest_plot_var_name_mapping <- c(
+  "depression_level_at_year_1Minor Depression" = "Depression Level at Year 1: Minor Depression",
+  "depression_level_at_year_1Major Depression" = "Depression Level at Year 1: Major Depression",
+  "mental_health_tx_hxMental health treatment received prior to year preceding index injury only" =
+    "Mental Health Treatment: Received prior to year preceding injury only",
+  "mental_health_tx_hxMental health treatment received within year preceding index injury" =
+    "Mental Health Treatment: Received within year preceding injury",
+  "psych_hosp_hxPsychiatric hospital admission prior to year preceding index injury only" = 
+    "Psychiatric Hospitalization: Admitted prior to year preceding injury only",
+  "psych_hosp_hxPsychiatric hospital admission within year preceding index injury" = 
+    "Psychiatric Hospitalization: Admitted within year preceding injury",
+  "suicide_attempt_hxSuicide attempt history prior to injury" = "Suicide Attempt: Attempted prior to injury",
+  "suicide_attempt_hxSuicide attempt in the first year post-injury" = "Suicide Attempt: Attempted in the first year post-injury",
+  "calendar_year_of_injury" = "Calendar Year of Injury",
+  "age_at_injury" = "Age at Injury",
+  "sexFemale" = "Sex: Female",
+  "education_level_at_injury" = "Education Level at Injury",
+  "employment_at_injuryUnemployed" = "Employment Status at Injury: Unemployed",
+  "employment_at_injuryStudent" = "Employment Status at Injury: Student",
+  "employment_at_injuryRetired" = "Employment Status at Injury: Retired",
+  "employment_at_injuryOther" = "Employment Status at Injury: Other",
+  "marital_status_at_injuryMarried" = "Marital Status at Injury: Married",
+  "marital_status_at_injuryDivorced" = "Marital Status at Injury: Divorced",
+  "marital_status_at_injuryOther" = "Marital Status at Injury: Other",
+  "rehab_payor_primary_typeMedicaid" = "Primary Rehabilitation Payor: Medicaid",
+  "cause_of_injuryFalls" = "Mechanism of Injury: Falls",
+  "cause_of_injuryViolence" = "Mechanism of Injury: Violence",
+  "cause_of_injuryOther" = "Mechanism of Injury: Other",
+  "problematic_substance_use_at_injuryYes" = "Problematic Substance Use at Injury: Endorsed",
+  "problematic_substance_use_at_year_1Yes" = "Problematic Substance Use at Year 1: Endorsed",
+  "func_score_at_year_1" = "Function Factor Score at Year 1"
 )
 ```
 
@@ -1019,8 +1053,8 @@ gg.calendar_year_of_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x =
 # Save the plot
 ggsave(here(martingale_residuals_plots_dir, "figure_19-1_calendar_year_of_injury_vs_martingale_residuals.png"), 
        plot = gg.calendar_year_of_injury_vs_martingale,
-       width = 10, # Specify the width in inches. Adjust this value as needed.
-       height = 6, # Specify the height in inches. Adjust if necessary, or keep it for the desired aspect ratio.
+       width = 10, # Specify the width in inches
+       height = 6, # Specify the height in inches
        bg = "#FFFFFF",
        dpi = 300)
 ```
@@ -1045,8 +1079,8 @@ gg.age_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Age_at_In
 # Save the plot
 ggsave(here(martingale_residuals_plots_dir, "figure_19-2_age_at_injury_vs_martingale_residuals.png"), 
        plot = gg.age_at_injury_vs_martingale,
-       width = 10, # Specify the width in inches. Adjust this value as needed.
-       height = 6, # Specify the height in inches. Adjust if necessary, or keep it for the desired aspect ratio.
+       width = 10, # Specify the width in inches
+       height = 6, # Specify the height in inches
        bg = "#FFFFFF",
        dpi = 300)
 ```
@@ -1070,8 +1104,8 @@ gg.education_level_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x
 # Save the plot
 ggsave(here(martingale_residuals_plots_dir, "figure_19-3_education_level_at_injury_vs_martingale_residuals.png"), 
        plot = gg.education_level_at_injury_vs_martingale,
-       width = 10, # Specify the width in inches. Adjust this value as needed.
-       height = 6, # Specify the height in inches. Adjust if necessary, or keep it for the desired aspect ratio.
+       width = 10, # Specify the width in inches
+       height = 6, # Specify the height in inches
        bg = "#FFFFFF",
        dpi = 300)
 ```
@@ -1095,8 +1129,8 @@ gg.function_factor_score_at_year_1_vs_martingale <- ggplot(martingale_plot_data,
 # Save the plot
 ggsave(here(martingale_residuals_plots_dir, "figure_19-4_function_factor_score_at_year_1_vs_martingale_residuals.png"), 
        plot = gg.function_factor_score_at_year_1_vs_martingale,
-       width = 10, # Specify the width in inches. Adjust this value as needed.
-       height = 6, # Specify the height in inches. Adjust if necessary, or keep it for the desired aspect ratio.
+       width = 10, # Specify the width in inches
+       height = 6, # Specify the height in inches
        bg = "#FFFFFF",
        dpi = 300)
 ```
@@ -1112,40 +1146,32 @@ However, one can use Martingale residuals in a more analytical approach to test 
 ## Plotting Survival Curves
 
 ```{r Create Prediction Data Frames}
-# Relevel the strata factors and set preferred reference levels
-complete_cases_all$sex <- relevel(complete_cases_all$sex, ref = "Male")
-complete_cases_all <- complete_cases_all |>
-  mutate(depression_level_at_year_1 = factor(depression_level_at_year_1,
-                                             levels = c("No Depression", "Minor Depression", "Major Depression")))
-# Define the strata
+# Define the stratum for the Model 1 plot
+stratum <- data.frame(depression_level_at_year_1 = levels(complete_cases_all$depression_level_at_year_1))
+rownames(stratum) <- letters[1:nrow(stratum)] # Ensure the length of row names matches the number of rows in stratum
+
+# Define the strata for the Model 5 plot
 strata <- expand.grid(
   depression_level_at_year_1 = levels(complete_cases_all$depression_level_at_year_1),
   sex = levels(complete_cases_all$sex)
   )
-# Ensure the length of row names matches the number of rows in strata
-rownames(strata) <- letters[1:nrow(strata)]
-
-# Define the stratum manually since there's only one factor
-stratum <- data.frame(
-  depression_level_at_year_1 = levels(complete_cases_all$depression_level_at_year_1)
-)
-rownames(stratum) <- letters[1:nrow(stratum)]
+rownames(strata) <- letters[1:nrow(strata)] # Ensure the length of row names matches the number of rows in strata
 
 # Define the average participant
 average_participant <- expand.grid(
   depression_level_at_year_1 = levels(complete_cases_all$depression_level_at_year_1),
   sex = levels(complete_cases_all$sex),
-  calendar_year_of_injury = 2009,
-  age_at_injury = 34,
-  education_level_at_injury = 12,
+  calendar_year_of_injury = median(complete_cases_all$calendar_year_of_injury),
+  age_at_injury = median(complete_cases_all$age_at_injury),
+  education_level_at_injury = median(complete_cases_all$education_level_at_injury),
   employment_at_injury = "Competitively Employed",
   marital_status_at_injury = "Single",
   rehab_payor_primary_type = "Non-Medicaid",
   cause_of_injury = "Vehicular",
-  drs_total_at_year_1 = 1.5,
-  fim_total_at_year_1 = 121,
-  gose_total_at_year_1 = 6,
-  func_score_at_year_1 = 0.5795526,
+  drs_total_at_year_1 = median(complete_cases_all$drs_total_at_year_1),
+  fim_total_at_year_1 = median(complete_cases_all$fim_total_at_year_1),
+  gose_total_at_year_1 = median(complete_cases_all$gose_total_at_year_1),
+  func_score_at_year_1 = median(complete_cases_all$func_score_at_year_1),
   mental_health_tx_hx = "Denied any history of mental health treatment",
   psych_hosp_hx = "Denied any history of psychiatric hospitalization",
   problematic_substance_use_at_injury = "No",
@@ -1153,13 +1179,6 @@ average_participant <- expand.grid(
   suicide_attempt_hx = "Denied any history of suicide attempt"
   )
 rownames(average_participant) <- letters[1:nrow(average_participant)]
-
-# Relevel the strata factors and set preferred reference levels
-average_participant$sex <- relevel(average_participant$sex, ref = "Male")
-
-average_participant <- average_participant |>
-  mutate(depression_level_at_year_1 = factor(depression_level_at_year_1,
-                                             levels = c("No Depression", "Minor Depression", "Major Depression")))
 ```
 
 ```{r Generate Survival Curves}
@@ -1196,15 +1215,15 @@ gg.surv.model1 <- surv_model_1 |>
     conf.int = FALSE,
     censor = FALSE,
     surv.scale = "percent",
-    break.time.by = 1, 
-    xlim = c(0, 5), # Limit x-axis to 10 years
-    ylim = c(crop, 1),
+    break.time.by = 0.5, 
+    xlim = c(0, 5), # Limit x-axis to 5 years
+    # ylim = c(crop, 1),
     palette = c("#90cbf9", "#2196f3", "#114b7a"),
     ggtheme = theme_classic(),
     ) + 
   customization_survival_curves
 
-ggsave(here(survival_curves_plots_dir, "figure_19-1_kaplan_meier_curves_model_1.png"),
+ggsave(here(survival_curves_plots_dir, "figure_19-1_kaplan_meier_curves_model_1_5_year_followup.png"),
        gg.surv.model1, dpi = 300)
 ```
 
@@ -1219,14 +1238,14 @@ gg.surv.model5 <- surv_model_5 |>
     color = "depression_level_at_year_1",
     linetype = "sex",
     #title = "Effect of Depression Level at Year 1 on Survival",
-    xlab = "Time After Initial Interview (years)",
+    xlab = "Time After X (years)",
     ylab = "Survival Probability",
     legend = c(0.175, 0.175),
     conf.int = FALSE,
     censor = FALSE,
     surv.scale = "percent",
     break.time.by = 1,
-    xlim = c(0, 5), # Limit x-axis to 10 years
+    xlim = c(0, 5), # Limit x-axis to 5 years
     ylim = c(crop, 1),
     palette = c("#90cbf9", "#2196f3", "#114b7a"),
     ggtheme = theme_classic(),
@@ -1234,45 +1253,11 @@ gg.surv.model5 <- surv_model_5 |>
   labs(linetype = "Sex", color = "Depression Level at Year 1") +
   customization_survival_curves
 
-ggsave(here(survival_curves_plots_dir, "figure_19-2_kaplan_meier_curves_model_5.png"),
+ggsave(here(survival_curves_plots_dir, "figure_19-2_kaplan_meier_curves_model_5_5_year_followup.png"),
        gg.surv.model5, dpi = 300)
 ```
 
-```{r}
-# Define the mapping of original variable names to display names
-variable_var_name_mapping <- c(
-  "depression_level_at_year_1Minor Depression" = "Depression Level at Year 1: Minor Depression",
-  "depression_level_at_year_1Major Depression" = "Depression Level at Year 1: Major Depression",
-  "mental_health_tx_hxMental health treatment received prior to year preceding index injury only" =
-    "Mental Health Treatment: Received prior to year preceding injury only",
-  "mental_health_tx_hxMental health treatment received within year preceding index injury" =
-    "Mental Health Treatment: Received within year preceding injury",
-  "psych_hosp_hxPsychiatric hospital admission prior to year preceding index injury only" = 
-    "Psychiatric Hospitalization: Admitted prior to year preceding injury only",
-  "psych_hosp_hxPsychiatric hospital admission within year preceding index injury" = 
-    "Psychiatric Hospitalization: Admitted within year preceding injury",
-  "suicide_attempt_hxSuicide attempt history prior to injury" = "Suicide Attempt: Attempted prior to injury",
-  "suicide_attempt_hxSuicide attempt in the first year post-injury" = "Suicide Attempt: Attempted in the first year post-injury",
-  "calendar_year_of_injury" = "Calendar Year of Injury",
-  "age_at_injury" = "Age at Injury",
-  "sexFemale" = "Sex: Female",
-  "education_level_at_injury" = "Education Level at Injury",
-  "employment_at_injuryUnemployed" = "Employment Status at Injury: Unemployed",
-  "employment_at_injuryStudent" = "Employment Status at Injury: Student",
-  "employment_at_injuryRetired" = "Employment Status at Injury: Retired",
-  "employment_at_injuryOther" = "Employment Status at Injury: Other",
-  "marital_status_at_injuryMarried" = "Marital Status at Injury: Married",
-  "marital_status_at_injuryDivorced" = "Marital Status at Injury: Divorced",
-  "marital_status_at_injuryOther" = "Marital Status at Injury: Other",
-  "rehab_payor_primary_typeMedicaid" = "Primary Rehabilitation Payor: Medicaid",
-  "cause_of_injuryFalls" = "Mechanism of Injury: Falls",
-  "cause_of_injuryViolence" = "Mechanism of Injury: Violence",
-  "cause_of_injuryOther" = "Mechanism of Injury: Other",
-  "problematic_substance_use_at_injuryYes" = "Problematic Substance Use at Injury: Endorsed",
-  "problematic_substance_use_at_year_1Yes" = "Problematic Substance Use at Year 1: Endorsed",
-  "func_score_at_year_1" = "Function Factor Score at Year 1"
-)
-
+```{r Create Forest Plot of Model 5 Results (Approach 1: forestplot)}
 # Extract model summary
 model_summary <- summary(model_5)
 
@@ -1281,7 +1266,7 @@ coef <- model_summary$coefficients
 confint <- model_summary$conf.int
 
 # Create a table for the forest plot
-table_data <- data.frame(
+forest_plot_table <- data.frame(
   Variable = rownames(coef),
   HR = coef[, "exp(coef)"],
   Lower_CI = confint[, "lower .95"],
@@ -1290,62 +1275,92 @@ table_data <- data.frame(
 )
 
 # Replace the variable names with the display names
-table_data$Variable <- variable_var_name_mapping[table_data$Variable]
+forest_plot_table$Variable <- forest_plot_var_name_mapping[forest_plot_table$Variable]
 
 # Handle any variables that may not have a mapping defined
-table_data$Variable[is.na(table_data$Variable)] <- rownames(coef)[is.na(variable_var_name_mapping[rownames(coef)])]
+forest_plot_table$Variable[is.na(forest_plot_table$Variable)] <- rownames(coef)[is.na(forest_plot_var_name_mapping[rownames(coef)])]
 
 # Format the table for the forest plot
-table_text <- cbind(
-  Variable = table_data$Variable,
-  HR = sprintf("%.2f", table_data$HR),
-  CI = paste0("(", sprintf("%.2f", table_data$Lower_CI), " - ", sprintf("%.2f", table_data$Upper_CI), ")"),
-  P_value = sprintf("%.3f", table_data$P_value)
+forest_plot_table_text <- cbind(
+  Variable = forest_plot_table$Variable,
+  HR = sprintf("%.2f", forest_plot_table$HR),
+  CI = paste0("(", sprintf("%.2f", forest_plot_table$Lower_CI), " — ", sprintf("%.2f", forest_plot_table$Upper_CI), ")"),
+  P_value = sprintf("%.3f", forest_plot_table$P_value)
 )
 
 # Add a title row
-table_text <- rbind(
-  c("Variable", "HR", "95% CI", "P-value"),
-  table_text
+forest_plot_table_text <- rbind(
+  c("Variable", "HR", "95% CI", "p-value"),
+  forest_plot_table_text
 )
 
 # Create the forest plot
 forestplot(
-  labeltext = table_text,
-  mean = c(NA, table_data$HR),  # Add NA for the header row
-  lower = c(NA, table_data$Lower_CI),
-  upper = c(NA, table_data$Upper_CI),
-  is.summary = c(TRUE, rep(FALSE, nrow(table_data))),
+  labeltext = forest_plot_table_text,
+  mean = c(NA, forest_plot_table$HR),  # Add NA for the header row
+  lower = c(NA, forest_plot_table$Lower_CI),
+  upper = c(NA, forest_plot_table$Upper_CI),
+  is.summary = c(TRUE, rep(FALSE, nrow(forest_plot_table))),
   xlab = "Hazard Ratio",
   title = "Forest Plot of Cox Proportional Hazards Model 5"
 )
 ```
 
+```{r Create Forest Plot of Model 5 Results (Approach 2: ggplot2)}
+# Extract model summary in tidy format
+model_5_tidy <- tidy(model_5, exponentiate = TRUE, conf.int = TRUE) %>%
+  mutate(
+    term = plyr::revalue(as.character(term), forest_plot_var_name_mapping), 
+    term = factor(term, levels = forest_plot_var_name_mapping),
+    estimate = round(estimate, 2),
+    conf.low = round(conf.low, 2),
+    conf.high = round(conf.high, 2),
+    conf.int = paste0(conf.low, "-", conf.high),
+    p.value = ifelse(p.value < 0.001, "< 0.001", round(p.value, 3))
+  )
 
-```{r Plot Forest Plot for Cox Proportional Hazards Model}
-# Generate a ggforest plot
-ggforest_5 <- ggforest(model_5,
-                       refLabel = "Reference",
-                       data = as.data.frame(complete_cases_all))
+# Reverse factor levels of 'term' to display mental health covariates first
+model_5_tidy$term <- factor(model_5_tidy$term, levels = rev(levels(model_5_tidy$term)))
 
-ggforest_5 + scale_y_discrete(labels = c("depression_level_at_year_1" = "Depression Level at Year 1",
-                                         "mental_health_tx_hx" = "History of Mental Health Treatment"))
+# Create Plot Components
+# Point & Line Range (Hazard Ratio & CI)
+point_line_range <- ggplot(model_5_tidy, aes(x = estimate, y = term)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  annotate("text", x = 0.5, y = Inf, label = "Protective Factor", hjust = 1, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  annotate("text", x = 1.5, y = Inf, label = "Risk Factor", hjust = 0, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  labs(x = "Hazard Ratio (95% CI)", y = "") +
+  theme_classic() + 
+  customization +
+  scale_x_continuous(
+    breaks = seq(
+      -1, # Start the x-axis at -1
+      ceiling(max(model_5_tidy$conf.high)), 
+      by = 1
+    ),
+    limits = c(-1, ceiling(max(model_5_tidy$conf.high))) # Ensure the entire x-axis is displayed
+  ) 
 
+# Estimate Annotations (HR and CI numbers)
+estimate_annotations <- ggplot(model_5_tidy, aes(x = 2.5, y = term, label = paste0(estimate, " (", conf.int, ")"))) +
+  geom_text(hjust = 0, size = 3, family = "Proxima Nova") +
+  annotate("text", x = 2.5, y = Inf, label = "Hazard Ratio (95% CI)", hjust = 0, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  theme_void()
 
-df_linear <-
-  ggforestplot::df_linear_associations |>
-  dplyr::arrange(name) |>
-  dplyr::filter(dplyr::row_number() <= 30)
+# P-Value Annotations
+p_value_annotations <- ggplot(model_5_tidy, aes(x = 0, y = term)) +
+  geom_text(aes(label = p.value), hjust = 1, size = 3, family = "Proxima Nova", 
+            fontface = ifelse(model_5_tidy$p.value < 0.05, "bold", "plain")) +  # Conditional bolding
+  annotate("text", x = 0, y = Inf, label = "p-value", hjust = 1, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  theme_void()
 
-ggforestplot::forestplot(
-  df = df_linear,
-  estimate = beta,
-  logodds = FALSE,
-  colour = trait,
-  title = "Associations to metabolic traits",
-  xlab = "1-SD increment in cardiometabolic trait
-  per 1-SD increment in biomarker concentration"
-)
+# Combine Plots
+combined_plot <- point_line_range + estimate_annotations + p_value_annotations +
+  plot_layout(widths = c(2, 1, 1))
+
+# Display Plot
+print(combined_plot)
 ```
 
 3.  **Multicollinearity:**
