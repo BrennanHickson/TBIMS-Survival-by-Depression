@@ -128,7 +128,8 @@ var_name_mapping <- c(
   cause_of_injury = "Mechanism of Injury",
   problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
   problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-  func_score_at_year_1 = "Function Factor Score at Year 1"
+  func_score_at_year_1 = "Function Factor Score at Year 1",
+  GLOBAL = "GLOBAL"
 )
 ```
 
@@ -812,35 +813,86 @@ The steps involved in conducting a global Schoenfeld test are generally as follo
 
 ```{r Test the Proportional Hazards Assumption for the Cox Regression Model Fit of All Proposed Covariates Using the Schoenfeld Residuals Test}
 # Perform the Schoenfeld test on Models 2-5
+schoenfeld_test_results_model_1 <- cox.zph(model_1)
 schoenfeld_test_results_model_2 <- cox.zph(model_2)
 schoenfeld_test_results_model_3 <- cox.zph(model_3)
 schoenfeld_test_results_model_4 <- cox.zph(model_4)
 schoenfeld_test_results_model_5 <- cox.zph(model_5)
 
-# Print the Schoenfeld test results
+
+# Function to extract results into a data frame
+extract_schoenfeld_results <- function(test_result) {
+  data.frame(
+    Variable = rownames(test_result$table),
+    chisq = test_result$table[, "chisq"],
+    df = test_result$table[, "df"],
+    p = test_result$table[, "p"]
+  )
+}
+
+# Extract results for each model and replace "NA" with "GLOBAL"
+schoenfeld_results_model_1 <- extract_schoenfeld_results(schoenfeld_test_results_model_1)
+schoenfeld_results_model_2 <- extract_schoenfeld_results(schoenfeld_test_results_model_2)
+schoenfeld_results_model_3 <- extract_schoenfeld_results(schoenfeld_test_results_model_3)
+schoenfeld_results_model_4 <- extract_schoenfeld_results(schoenfeld_test_results_model_4)
+schoenfeld_results_model_5 <- extract_schoenfeld_results(schoenfeld_test_results_model_5)
+
+# Function to create a gt table for the results with variable renaming
+create_gt_table <- function(results_df, model_name, var_name_mapping) {
+  results_df <- results_df |>
+    mutate(Variable = var_name_mapping[Variable])
+  
+  results_df |>
+    gt() |>
+    tab_header(
+      title = paste("Schoenfeld Residuals Test Results for", model_name)
+    ) |>
+    fmt_number(
+      columns = c(chisq, df, p),
+      decimals = 3
+    ) |>
+    cols_label(
+      Variable = "Characteristic",
+      chisq = "Chi-Square",
+      df = "Degrees of Freedom",
+      p = "p-value"
+    ) |>
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_column_labels(everything())
+    ) |>
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_body(
+        columns = "p",
+        rows = p < 0.05
+      )
+    ) |>
+    tab_footnote(
+      footnote = "p-values less than 0.05 indicate violation of the proportional hazards assumption",
+      locations = cells_column_labels("p")
+    )
+}
+
+# Create gt tables for each model with variable renaming
+gt_table_model_1 <- create_gt_table(schoenfeld_results_model_1, "Model 1", var_name_mapping)
+gt_table_model_2 <- create_gt_table(schoenfeld_results_model_2, "Model 2", var_name_mapping)
+gt_table_model_3 <- create_gt_table(schoenfeld_results_model_3, "Model 3", var_name_mapping)
+gt_table_model_4 <- create_gt_table(schoenfeld_results_model_4, "Model 4", var_name_mapping)
+gt_table_model_5 <- create_gt_table(schoenfeld_results_model_5, "Model 5", var_name_mapping)
+
+# Print the gt tables in the viewer
+gt_table_model_1
+gt_table_model_2
+gt_table_model_3
+gt_table_model_4
+gt_table_model_5
+
+# Print the Schoenfeld test results in the console
 print(schoenfeld_test_results_model_2)
 print(schoenfeld_test_results_model_3)
 print(schoenfeld_test_results_model_4)
 print(schoenfeld_test_results_model_5)
-```
-
-```{r}
-# Function to format and print p-values and chi-square values
-format_and_print_p_values <- function(schoenfeld_test_results) {
-  results <- as.data.frame(schoenfeld_test_results$table)
-  results <- results %>%
-    mutate(chisq = formatC(chisq, format = "f", digits = 3),
-           p_value_formatted = ifelse(`p` < 0.05,
-                                      paste0("**", formatC(`p`, format = "f", digits = 3), "**"),
-                                      formatC(`p`, format = "f", digits = 3)))
-  print(results)
-}
-
-# Apply the function to each set of results
-format_and_print_p_values(schoenfeld_test_results_model_2)
-format_and_print_p_values(schoenfeld_test_results_model_3)
-format_and_print_p_values(schoenfeld_test_results_model_4)
-format_and_print_p_values(schoenfeld_test_results_model_5)
 ```
 
 ```{r Plot the Results of the Schoenfeld Test for Model 5 (All Proposed Covariates)}
@@ -940,7 +992,7 @@ martingale_residuals <- residuals(model_5, type = "martingale")
 # # Calculate the adjusted partial residuals for the covariate
 # partial_res <- martingale_res + model_5$coefficients[1] * complete_cases_all$covariate
 
-# Create a data frame of continuous variables and Martingale residuals for plotting
+# Create a data frame of continuous covariates and Martingale residuals for plotting
 martingale_plot_data <- data.frame(Calendar_Year = complete_cases_all$calendar_year_of_injury,
                                    Age_at_Injury = complete_cases_all$age_at_injury,
                                    Education_Level = complete_cases_all$education_level_at_injury,
@@ -949,13 +1001,17 @@ martingale_plot_data <- data.frame(Calendar_Year = complete_cases_all$calendar_y
 ```
 
 ```{r Plot Figure 19-1}
+# Filter out non-finite values from the data
+martingale_plot_data <- martingale_plot_data |>
+  filter(is.finite(Calendar_Year) & is.finite(Martingale_Residuals))
+
 # Plot Martingale residuals against calendar year at injury
 gg.calendar_year_of_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Calendar_Year, y = Martingale_Residuals)) +
   geom_point() + # Plot points
   # geom_hline(yintercept = 0, color = "#EF5350", size = 1.25) + # Add a horizontal line at y = 0
-  geom_smooth(method = "loess", color = "#EF5350", size = 1.25) + # Add a Loess curve
+  geom_smooth(method = "loess", span = 0.9, color = "#EF5350", size = 1.25) + # Add a Loess curve
   labs(x = "Calendar Year of Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Calendar Year of Injury") +
-  scale_y_continuous(breaks = seq(-2.5, 1.0, by = 0.5), limits = c(-2.5, 1.0)) + # Adjust y-axis tick values
+  scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
   theme_minimal(base_family = "Proxima Nova") +
   theme(plot.title = element_text(size = 18)) +
   customization_martingale
@@ -970,6 +1026,10 @@ ggsave(here(martingale_residuals_plots_dir, "figure_19-1_calendar_year_of_injury
 ```
 
 ```{r Plot Figure 19-2}
+# Filter out non-finite values from the data
+martingale_plot_data <- martingale_plot_data |>
+  filter(is.finite(Age_at_Injury) & is.finite(Martingale_Residuals))
+
 # Plot Martingale residuals against age at injury
 gg.age_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Age_at_Injury, y = Martingale_Residuals)) +
   geom_point() + # Plot points
@@ -977,7 +1037,7 @@ gg.age_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Age_at_In
   geom_smooth(method = "loess", color = "#EF5350", size = 1.25) + # Add a Loess curve
   labs(x = "Age at Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Age at Injury") +
   scale_x_continuous(breaks = seq(16, 96, by = 20), limits = c(15, 100)) + # Adjust x-axis tick values and limits
-  scale_y_continuous(breaks = seq(-2.5, 1.0, by = 0.5), limits = c(-2.5, 1.0)) + # Adjust y-axis tick values
+  scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
   theme_minimal(base_family = "Proxima Nova") +
   theme(plot.title = element_text(size = 18)) +
   customization_martingale
@@ -992,13 +1052,17 @@ ggsave(here(martingale_residuals_plots_dir, "figure_19-2_age_at_injury_vs_martin
 ```
 
 ```{r Plot Figure 19-3}
+# Filter out non-finite values from the data
+martingale_plot_data <- martingale_plot_data |>
+  filter(is.finite(Education_Level) & is.finite(Martingale_Residuals))
+
 # Plot Martingale residuals against education level at injury
 gg.education_level_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Education_Level, y = Martingale_Residuals)) +
   geom_point() + # Plot points
   # geom_hline(yintercept = 0, color = "#EF5350", size = 1.25) + # Add a horizontal line at y = 0
   geom_smooth(method = "loess", color = "#EF5350", size = 1.25) + # Add a Loess curve
   labs(x = "Education Level at Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Education Level at Injury") +
-  scale_y_continuous(breaks = seq(-2.5, 1.0, by = 0.5), limits = c(-2.5, 1.0)) + # Adjust y-axis tick values
+  scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
   theme_minimal(base_family = "Proxima Nova") +
   theme(plot.title = element_text(size = 18)) +
   customization_martingale
@@ -1013,13 +1077,17 @@ ggsave(here(martingale_residuals_plots_dir, "figure_19-3_education_level_at_inju
 ```
 
 ```{r Plot 19-4}
+# Filter out non-finite values from the data
+martingale_plot_data <- martingale_plot_data |>
+  filter(is.finite(Function_Factor_Score) & is.finite(Martingale_Residuals))
+
 # Plot Martingale residuals against education level at injury
 gg.function_factor_score_at_year_1_vs_martingale <- ggplot(martingale_plot_data, aes(x = Function_Factor_Score, y = Martingale_Residuals)) +
   geom_point() + # Plot points
   # geom_hline(yintercept = 0, color = "#EF5350", size = 1.25) + # Add a horizontal line at y = 0
   geom_smooth(method = "loess", color = "#EF5350", size = 1.25) + # Add a Loess curve
   labs(x = "Function Factor Score at Year 1", y = "Martingale Residuals", title = "Martingale Residuals vs. Function Factor Score at Year 1") +
-  scale_y_continuous(breaks = seq(-2.5, 1.0, by = 0.5), limits = c(-2.5, 1.0)) + # Adjust y-axis tick values
+  scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
   theme_minimal(base_family = "Proxima Nova") +
   theme(plot.title = element_text(size = 18)) +
   customization_martingale
