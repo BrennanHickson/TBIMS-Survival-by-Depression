@@ -133,25 +133,6 @@ var_name_mapping <- c(
   suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
   suicide_attempt_hx = "History of Suicide Attempt"
 )
-
-# # Define the preferred variable labels for select covariates 1 (excludes individual function [i.e., DRS, FIM, GOS-E] scores)
-# select_covariates_1_labels <- c(
-#   depression_level_at_year_1 = "Depression Level at Year 1",
-#   calendar_year_of_injury = "Calendar Year of Injury",
-#   sex = "Sex",
-#   age_at_injury = "Age at Injury",
-#   education_level_at_injury = "Educational Attainment at Injury",
-#   employment_at_injury = "Employment Status at Injury",
-#   marital_status_at_injury = "Marital Status at Injury",
-#   rehab_payor_primary_type = "Medicaid Status",
-#   cause_of_injury = "Mechanism of Injury",
-#   func_score_at_year_1 = "Function Factor Score at Year 1",
-#   mental_health_tx_hx = "History of Mental Health Treatment",
-#   psych_hosp_hx = "History of Psychiatric Hospitalization",
-#   problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
-#   problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-#   suicide_attempt_hx = "History of Suicide Attempt"
-# )
 ```
 
 ```{r Prepare the Data Frames with the Covariates of Interest for Tables and Plots}

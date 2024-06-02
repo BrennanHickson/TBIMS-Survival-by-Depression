@@ -35,12 +35,10 @@ if (!dir.exists(missingness_plots_dir)) {
 }
 
 # Load the .rds files
-analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final.rds"))
-na_counts_for_all_proposed_covariates <- readRDS(file.path(data_processed_dir, "na_counts_for_all_proposed_covariates.rds"))
-na_counts_for_select_covariates_1 <- readRDS(file.path(data_processed_dir, "na_counts_for_select_covariates_1.rds"))
-
-# Convert 'analytic_data_final' to a data frame
-analytic_data_final <- as.data.frame(analytic_data_final)
+analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_5_year_followup.rds"))
+# analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_10_year_followup.rds"))
+na_counts_for_all_proposed_covariates <- readRDS(file.path(data_processed_dir, "na_counts_for_all_proposed_covariates_5_year_followup.rds"))
+na_counts_for_select_covariates_1 <- readRDS(file.path(data_processed_dir, "na_counts_for_select_covariates_1_5_year_followup.rds"))
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
@@ -62,60 +60,6 @@ customization <- theme(
   text = element_text(family = "Proxima Nova"),
   legend.position = "top"
 )
-```
-
-# Import the Data
-
-```{r Import the Data}
-# Define the column classes
-column_classes <- c(
-  "id" = "integer",
-  "event_status" = "factor",
-  "time_to_event_in_years" = "numeric",
-  "time_to_censorship_in_years" = "numeric",
-  "time_to_expiration_in_years" = "numeric",
-  "age_at_censorship" = "numeric",
-  "age_at_expiration" = "numeric",
-  "calendar_year_of_injury" = "integer",
-  "sex" = "factor",
-  "age_at_injury" = "integer",
-  "education_level_at_injury" = "numeric",
-  "employment_at_injury" = "factor",
-  "marital_status_at_injury" = "factor",
-  "rehab_payor_primary" = "factor",
-  "rehab_payor_primary_type" = "factor",
-  "cause_of_injury" = "factor",
-  "drs_total_at_year_1" = "numeric",
-  "fim_total_at_year_1" = "numeric",
-  "gose_total_at_year_1" = "numeric",
-  "func_score_at_year_1" = "numeric",
-  "mental_health_tx_lifetime_at_injury" = "factor",
-  "mental_health_tx_past_year_at_injury" = "factor",
-  "mental_health_tx_hx" = "factor",
-  "psych_hosp_hx_lifetime_at_injury" = "factor",
-  "psych_hosp_hx_past_year_at_injury" = "factor",
-  "psych_hosp_hx" = "factor",
-  "problematic_substance_use_at_injury" = "factor",
-  "problematic_substance_use_at_year_1" = "factor",
-  "suicide_attempt_hx_lifetime_at_injury" = "factor",
-  "suicide_attempt_hx_past_year_at_injury" = "factor",
-  "suicide_attempt_hx_past_year_at_year_1" = "factor",
-  "suicide_attempt_hx" = "factor",
-  "depression_level_at_year_1" = "factor"
-)
-
-# Ensure analytic_data_final is a data frame
-analytic_data_final <- as.data.frame(analytic_data_final)
-
-# Convert columns to their proper types
-for (col in names(column_classes)) {
-  class_type <- column_classes[[col]]
-  analytic_data_final[[col]] <- switch(class_type,
-                                       "integer" = as.integer(analytic_data_final[[col]]),
-                                       "numeric" = as.numeric(analytic_data_final[[col]]),
-                                       "factor" = as.factor(analytic_data_final[[col]]),
-                                       analytic_data_final[[col]])
-}
 ```
 
 # Prepare Covariate Sets for Table 1
@@ -180,7 +124,96 @@ select_covariates_1 <- c("id",
                          "problematic_substance_use_at_year_1",
                          "suicide_attempt_hx",
                          "depression_level_at_year_1")
+```
 
+```{r Define the Preferred Variable Labels for the Covariates of Interest}
+# Define the preferred variable labels for all covariates and variables of interest
+var_name_mapping <- c(
+  event_status = "Mortality Events",
+  time_to_event_in_years = "Time to Event (years)",
+  time_to_censorship_in_years = "Time to Censorship (years)",
+  time_to_expiration_in_years = "Time to Expiration (years)",
+  age_at_censorship = "Age at Censorship",
+  age_at_expiration = "Age at Expiration",
+  depression_level_at_year_1 = "Depression Level at Year 1",
+  calendar_year_of_injury = "Calendar Year of Injury",
+  sex = "Sex",
+  age_at_injury = "Age at Injury",
+  education_level_at_injury = "Educational Attainment at Injury",
+  employment_at_injury = "Employment Status at Injury",
+  marital_status_at_injury = "Marital Status at Injury",
+  rehab_payor_primary = "Primary Rehabilitation Payor",
+  rehab_payor_primary_type = "Medicaid Status",
+  cause_of_injury = "Mechanism of Injury",
+  drs_total_at_year_1 = "DRS Score at Year 1",
+  fim_total_at_year_1 = "FIM Score at Year 1",
+  gose_total_at_year_1 = "GOS-E Score at Year 1",
+  func_score_at_year_1 = "Function Factor Score at Year 1",
+  mental_health_tx_lifetime_at_injury = "Lifetime History of Mental Health Treatment at Injury",
+  mental_health_tx_past_year_at_injury = "Past-Year History of Mental Health Treatment at Injury",
+  mental_health_tx_hx = "History of Mental Health Treatment",
+  psych_hosp_hx_lifetime_at_injury = "Lifetime History of Psychiatric Hospitalization at Injury",
+  psych_hosp_hx_past_year_at_injury = "Past-Year History of Psychiatric Hospitalization at Injury",
+  psych_hosp_hx = "History of Psychiatric Hospitalization",
+  problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+  problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+  suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+  suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+  suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+  suicide_attempt_hx = "History of Suicide Attempt"
+)
+```
+
+```{r Adjust the Levels of the Factor Variables and Set Preferred Reference Groups}
+# Adjust the levels of the factor variables
+analytic_data_final <- analytic_data_final |>
+  mutate(
+    depression_level_at_year_1 = factor(depression_level_at_year_1,
+                                        levels = c("No Depression",
+                                                   "Minor Depression",
+                                                   "Major Depression")),
+    mental_health_tx_hx = factor(mental_health_tx_hx,
+                                 levels = c("Denied any history of mental health treatment",
+                                            "Mental health treatment received prior to year preceding index injury only",
+                                            "Mental health treatment received within year preceding index injury")),
+    psych_hosp_hx = factor(psych_hosp_hx,
+                           levels = c("Denied any history of psychiatric hospitalization",
+                                      "Psychiatric hospital admission prior to year preceding index injury only",
+                                      "Psychiatric hospital admission within year preceding index injury")),
+    suicide_attempt_hx = factor(suicide_attempt_hx, 
+                                levels = c("Denied any history of suicide attempt", 
+                                           "Suicide attempt history prior to injury", 
+                                           "Suicide attempt in the first year post-injury")),
+    sex = factor(sex, 
+                 levels = c("Male", "Female")),
+    employment_at_injury = factor(employment_at_injury, 
+                                  levels = c("Competitively Employed", 
+                                             "Unemployed", 
+                                             "Student", 
+                                             "Retired", 
+                                             "Other")),
+    marital_status_at_injury = factor(marital_status_at_injury,
+                                      levels = c("Single",
+                                                 "Married",
+                                                 "Divorced",
+                                                 "Other")),
+    rehab_payor_primary_type = factor(rehab_payor_primary_type, 
+                                      levels = c("Non-Medicaid", "Medicaid")),
+    cause_of_injury = factor(cause_of_injury,
+                             levels = c("Vehicular",
+                                        "Falls",
+                                        "Violence",
+                                        "Other")),
+    problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
+                                                 levels = c("No",
+                                                            "Yes")),
+    problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
+                                                 levels = c("No",
+                                                            "Yes"))
+  )
+```
+
+```{r Prepare Table-Specific Data Frames}
 analytic_data_for_tables_all <- analytic_data_final |>
   mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
   select("id", all_of(all_proposed_covariates)) |>
@@ -192,103 +225,8 @@ analytic_data_for_tables_select_1 <- analytic_data_final |>
   arrange(id)
 ```
 
-```{r}
-# Adjust the levels of the factor variables
-analytic_data_for_tables_all <- analytic_data_for_tables_all |>
-  mutate(
-    depression_level_at_year_1 = factor(depression_level_at_year_1,
-                                        levels = c("No Depression",
-                                                   "Minor Depression",
-                                                   "Major Depression")),
-    mental_health_tx_hx = factor(mental_health_tx_hx,
-                                 levels = c("Denied any history of mental health treatment",
-                                            "Mental health treatment received prior to year preceding index injury only",
-                                            "Mental health treatment received within year preceding index injury")),
-    psych_hosp_hx = factor(psych_hosp_hx,
-                           levels = c("Denied any history of psychiatric hospitalization",
-                                      "Psychiatric hospital admission prior to year preceding index injury only",
-                                      "Psychiatric hospital admission within year preceding index injury")),
-    suicide_attempt_hx = factor(suicide_attempt_hx, 
-                                levels = c("Denied any history of suicide attempt", 
-                                           "Suicide attempt history prior to injury", 
-                                           "Suicide attempt in the first year post-injury")),
-    sex = factor(sex, 
-                 levels = c("Male", "Female")),
-    employment_at_injury = factor(employment_at_injury, 
-                                  levels = c("Competitively Employed", 
-                                             "Unemployed", 
-                                             "Student", 
-                                             "Retired", 
-                                             "Other")),
-    marital_status_at_injury = factor(marital_status_at_injury,
-                                      levels = c("Single",
-                                                 "Married",
-                                                 "Divorced",
-                                                 "Other")),
-    rehab_payor_primary_type = factor(rehab_payor_primary_type, 
-                                      levels = c("Non-Medicaid", "Medicaid")),
-    cause_of_injury = factor(cause_of_injury,
-                             levels = c("Vehicular",
-                                        "Falls",
-                                        "Violence",
-                                        "Other")),
-    problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
-                                                 levels = c("No",
-                                                            "Yes")),
-    problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
-                                                 levels = c("No",
-                                                            "Yes"))
-  )
-
-analytic_data_for_tables_select_1 <- analytic_data_for_tables_select_1 |>
-  mutate(
-    depression_level_at_year_1 = factor(depression_level_at_year_1,
-                                        levels = c("No Depression",
-                                                   "Minor Depression",
-                                                   "Major Depression")),
-    mental_health_tx_hx = factor(mental_health_tx_hx,
-                                 levels = c("Denied any history of mental health treatment",
-                                            "Mental health treatment received prior to year preceding index injury only",
-                                            "Mental health treatment received within year preceding index injury")),
-    psych_hosp_hx = factor(psych_hosp_hx,
-                           levels = c("Denied any history of psychiatric hospitalization",
-                                      "Psychiatric hospital admission prior to year preceding index injury only",
-                                      "Psychiatric hospital admission within year preceding index injury")),
-    suicide_attempt_hx = factor(suicide_attempt_hx, 
-                                levels = c("Denied any history of suicide attempt", 
-                                           "Suicide attempt history prior to injury", 
-                                           "Suicide attempt in the first year post-injury")),
-    sex = factor(sex, 
-                 levels = c("Male", "Female")),
-    employment_at_injury = factor(employment_at_injury, 
-                                  levels = c("Competitively Employed", 
-                                             "Unemployed", 
-                                             "Student", 
-                                             "Retired", 
-                                             "Other")),
-    marital_status_at_injury = factor(marital_status_at_injury,
-                                      levels = c("Single",
-                                                 "Married",
-                                                 "Divorced",
-                                                 "Other")),
-    rehab_payor_primary_type = factor(rehab_payor_primary_type, 
-                                      levels = c("Non-Medicaid", "Medicaid")),
-    cause_of_injury = factor(cause_of_injury,
-                             levels = c("Vehicular",
-                                        "Falls",
-                                        "Violence",
-                                        "Other")),
-    problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
-                                                 levels = c("No",
-                                                            "Yes")),
-    problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
-                                                 levels = c("No",
-                                                            "Yes"))
-  )
-```
-
-```{r Create complete-case and incomplete-case subsamples}
-# Select the variables to exclude from the complete case data frame
+```{r Create Complete-Case Subsamples}
+# Select the variables to exclude from the complete-case data frame
 variables_to_exclude <- c("time_to_censorship_in_years",
                           "time_to_expiration_in_years", 
                           "age_at_censorship",
@@ -298,7 +236,7 @@ variables_to_exclude <- c("time_to_censorship_in_years",
 variables_for_cc_all <- setdiff(all_proposed_covariates, variables_to_exclude)
 variables_for_cc_select_1 <- setdiff(select_covariates_1, variables_to_exclude)
 
-# Prepare the complete cases data frame
+# Prepare the complete-case data frames
 analytic_data_for_cc_all <- analytic_data_final |>
   select(id, all_of(variables_for_cc_all)) |>
   arrange(id)
@@ -323,70 +261,23 @@ complete_cases_for_tables_all <- complete_cases_all |>
          age_at_expiration,
          names(complete_cases_all)[-c(1:3)])  # Add the remaining the variables from 'complete_cases_all', excluding the first three
 
-# Prepare the levels of depression level at year 1
-complete_cases_for_tables_all <- complete_cases_for_tables_all |>
-  mutate(
-    depression_level_at_year_1 = factor(depression_level_at_year_1,
-                                        levels = c("No Depression",
-                                                   "Minor Depression",
-                                                   "Major Depression")),
-    mental_health_tx_hx = factor(mental_health_tx_hx,
-                                 levels = c("Denied any history of mental health treatment",
-                                            "Mental health treatment received prior to year preceding index injury only",
-                                            "Mental health treatment received within year preceding index injury")),
-    psych_hosp_hx = factor(psych_hosp_hx,
-                           levels = c("Denied any history of psychiatric hospitalization",
-                                      "Psychiatric hospital admission prior to year preceding index injury only",
-                                      "Psychiatric hospital admission within year preceding index injury")),
-    suicide_attempt_hx = factor(suicide_attempt_hx, 
-                                levels = c("Denied any history of suicide attempt", 
-                                           "Suicide attempt history prior to injury", 
-                                           "Suicide attempt in the first year post-injury")),
-    sex = factor(sex, 
-                 levels = c("Male", "Female")),
-    employment_at_injury = factor(employment_at_injury, 
-                                  levels = c("Competitively Employed", 
-                                             "Unemployed", 
-                                             "Student", 
-                                             "Retired", 
-                                             "Other")),
-    marital_status_at_injury = factor(marital_status_at_injury,
-                                      levels = c("Single",
-                                                 "Married",
-                                                 "Divorced",
-                                                 "Other")),
-    rehab_payor_primary_type = factor(rehab_payor_primary_type, 
-                                      levels = c("Non-Medicaid", "Medicaid")),
-    cause_of_injury = factor(cause_of_injury,
-                             levels = c("Vehicular",
-                                        "Falls",
-                                        "Violence",
-                                        "Other")),
-    problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
-                                                 levels = c("No",
-                                                            "Yes")),
-    problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
-                                                 levels = c("No",
-                                                            "Yes"))
-  )
-
 # Save the 'complete_cases_all' data frame in a single .rds file
-saveRDS(complete_cases_all, here(data_processed_dir, "complete_cases_all.rds"))
+saveRDS(complete_cases_all, here(data_processed_dir, "complete_cases_all_5_year_followup.rds"))
 
 # Save the 'complete_cases_all' data frame as a CSV file in the 'data/processed' subdirectory
-write.csv(complete_cases_all, file.path(data_processed_dir, "complete_cases_all.csv"), row.names = FALSE)
+write.csv(complete_cases_all, file.path(data_processed_dir, "complete_cases_all_5_year_followup.csv"), row.names = FALSE)
 ```
 
-```{r}
+```{r Create Incomplete-Case Subsamples}
 # Create a new data frame with only incomplete cases
 incomplete_cases_all <- analytic_data_for_cc_all[!complete.cases(analytic_data_for_cc_all), ]
 incomplete_cases_select_1 <- analytic_data_for_cc_select_1[!complete.cases(analytic_data_for_cc_select_1), ]
 ```
 
 ```{r Table 1-1-1: Generate descriptive statistics table for the full analytic sample with all proposed covariates}
-# Convert calendar year of injury to numeric to treat it as continuous rather than categorical
-analytic_data_for_tables_all$calendar_year_of_injury <- as.numeric(analytic_data_for_tables_all$calendar_year_of_injury)
-analytic_data_for_tables_all$gose_total_at_year_1 <- as.numeric(analytic_data_for_tables_all$gose_total_at_year_1)
+# # Convert calendar year of injury to numeric to treat it as continuous rather than categorical
+# analytic_data_for_tables_all$calendar_year_of_injury <- as.numeric(analytic_data_for_tables_all$calendar_year_of_injury)
+# analytic_data_for_tables_all$gose_total_at_year_1 <- as.numeric(analytic_data_for_tables_all$gose_total_at_year_1)
 
 # Handle missing values in depression_level_at_year_1
 analytic_data_for_tables_all <- analytic_data_for_tables_all |>
@@ -408,40 +299,7 @@ table_1_1_1 <- analytic_data_for_tables_all |>
                   starts_with("drs") ~ 1,
                   starts_with("fim") ~ 0,
                   starts_with("gose") ~ 0),
-    label = list(
-      event_status = "Mortality Events",
-      time_to_event_in_years = "Duration of Follow-Up (years)",
-      time_to_censorship_in_years = "Time to Censorship (years)",
-      time_to_expiration_in_years = "Time to Expiration (years)",
-      age_at_censorship = "Age at Censorship (years)",
-      age_at_expiration = "Age at Expiration (years)",
-      calendar_year_of_injury = "Calendar Year of Injury",
-      age_at_injury = "Age at Injury (years)",
-      sex = "Sex",
-      education_level_at_injury = "Educational Attainment at Injury",
-      employment_at_injury = "Employment Status at Injury",
-      marital_status_at_injury = "Marital Status at Injury",
-      rehab_payor_primary = "Primary Rehabilitation Payor",
-      rehab_payor_primary_type = "Medicaid Status",
-      cause_of_injury = "Mechanism of Injury",
-      drs_total_at_year_1 = "Total DRS Score at Year 1",
-      fim_total_at_year_1 = "Total FIM Score at Year 1",
-      gose_total_at_year_1 = "Total GOS-E Score at Year 1",
-      func_score_at_year_1 = "Function Factor Score at Year 1",
-      mental_health_tx_lifetime_at_injury = "Lifetime History of Mental Health Treatment at Injury",
-      mental_health_tx_past_year_at_injury = "Past-Year History of Mental Health Treatment at Injury",
-      mental_health_tx_hx = "History of Mental Health Treatment",
-      psych_hosp_hx_lifetime_at_injury = "Lifetime History of Psychiatric Hospitalization at Injury",
-      psych_hosp_hx_past_year_at_injury = "Past-Year History of Psychiatric Hospitalization at Injury",
-      psych_hosp_hx = "History of Psychiatric Hospitalization",
-      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
-      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
-      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
-      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
-      suicide_attempt_hx = "History of Suicide Attempt",
-      depression_level_at_year_1 = "Depression Level at Year 1"
-    )
+    label = var_name_mapping
   ) |>
   add_overall() |>
   bold_labels() |>
@@ -453,18 +311,13 @@ table_1_1_1 <- analytic_data_for_tables_all |>
   as_gt() |>
   tab_header("Table 1-1-1: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with All Proposed Covariates by Depression Level at Year 1") |>
   gtsave(
-    filename = here(output_tables_dir, "table_1-1-1_full_analytic_sample_with_all_proposed_covariates_5-year_followup.png")
+    filename = here(output_tables_dir, "table_1-1-1_full_analytic_sample_with_all_proposed_covariates_5_year_followup.png")
   )
 ```
 
 ![](images/table_1-1-1_full_analytic_sample_with_all_proposed_covariates.png){fig-align="center"}
 
 ```{r Table 1-1-2: Generate descriptive statistics table for the complete-case sample with all proposed covariates}
-# # Convert relevant variables to numeric if they are continuous
-# complete_cases_for_tables_all$calendar_year_of_injury <- as.numeric(complete_cases_for_tables_all$calendar_year_of_injury)
-# complete_cases_for_tables_all$gose_total_at_year_1 <- as.numeric(complete_cases_for_tables_all$gose_total_at_year_1)
-# complete_cases_for_tables_all$education_level_at_injury <- as.numeric(complete_cases_for_tables_all$education_level_at_injury)
-
 # Generate table with descriptive statistics for the final analytic sample
 table_1_1_2 <- complete_cases_for_tables_all |>
   select(-"id") |>
@@ -482,40 +335,7 @@ table_1_1_2 <- complete_cases_for_tables_all |>
                   starts_with("drs") ~ 1,
                   starts_with("fim") ~ 0,
                   starts_with("gose") ~ 0),
-    label = list(
-      event_status = "Mortality Events",
-      time_to_event_in_years = "Duration of Follow-Up (years)",
-      time_to_censorship_in_years = "Time to Censorship (years)",
-      time_to_expiration_in_years = "Time to Expiration (years)",
-      age_at_censorship = "Age at Censorship (years)",
-      age_at_expiration = "Age at Expiration (years)",
-      calendar_year_of_injury = "Calendar Year of Injury",
-      sex = "Sex",
-      age_at_injury = "Age at Injury (years)",
-      education_level_at_injury = "Educational Attainment at Injury",
-      employment_at_injury = "Employment Status at Injury",
-      marital_status_at_injury = "Marital Status at Injury",
-      rehab_payor_primary = "Primary Rehabilitation Payor",
-      rehab_payor_primary_type = "Medicaid Status",
-      cause_of_injury = "Mechanism of Injury",
-      drs_total_at_year_1 = "Total DRS Score at Year 1",
-      fim_total_at_year_1 = "Total FIM Score at Year 1",
-      gose_total_at_year_1 = "Total GOS-E Score at Year 1",
-      func_score_at_year_1 = "Function Factor Score at Year 1",
-      mental_health_tx_lifetime_at_injury = "Lifetime History of Mental Health Treatment at Injury",
-      mental_health_tx_past_year_at_injury = "Past-Year History of Mental Health Treatment at Injury",
-      mental_health_tx_hx = "History of Mental Health Treatment",
-      psych_hosp_hx_lifetime_at_injury = "Lifetime History of Psychiatric Hospitalization at Injury",
-      psych_hosp_hx_past_year_at_injury = "Past-Year History of Psychiatric Hospitalization at Injury",
-      psych_hosp_hx = "History of Psychiatric Hospitalization",
-      problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
-      problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
-      suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
-      suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
-      suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
-      suicide_attempt_hx = "History of Suicide Attempt",
-      depression_level_at_year_1 = "Depression Level at Year 1"
-    )
+    label = var_name_mapping
   ) |>
   add_overall() |>
   bold_labels() |>
@@ -527,7 +347,7 @@ table_1_1_2 <- complete_cases_for_tables_all |>
   as_gt() |>
   tab_header("Table 1-1-2: Sociodemographic, Functional, and Clinical Characteristics of the Complete-Case Sample with All Proposed Covariates by Depression Level at Year 1") |>
   gtsave(
-    filename = here(output_tables_dir, "table_1-1-2_complete_case_sample_with_all_proposed_covariates_5-year_followup.png")
+    filename = here(output_tables_dir, "table_1-1-2_complete_case_sample_with_all_proposed_covariates_5_year_followup.png")
   )
 ```
 
