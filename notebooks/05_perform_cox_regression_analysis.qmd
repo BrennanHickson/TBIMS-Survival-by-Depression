@@ -828,7 +828,7 @@ create_plot <- function(index, label) {
   png(plot_file, width = 2400, height = 1600, res = 300, family = "Proxima Nova")
   
   # Plot the residual with the custom y-axis label and no x-axis
-  plot(schoenfeld_test_results_model_5[index], main = "Proportional Hazards Assumption Test", xlab = "Time (in years)", ylab = label, xaxt = "n", family = "Proxima Nova")
+  plot(schoenfeld_test_results_model_5[index], main = "Proportional Hazards Assumption Test", xlab = "Time from Year 1 Interview (years)", ylab = label, xaxt = "n", family = "Proxima Nova")
   abline(h = 0, lty = 3, col = "red")
   
   # Manually set x-axis labels
