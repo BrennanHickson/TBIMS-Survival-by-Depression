@@ -14,7 +14,7 @@ if (!requireNamespace("pacman", quietly = TRUE)) {
 }
 
 # Install and load prerequisite libraries
-pacman::p_load(autoReg, broom, corrplot, extrafont, forestplot, gridExtra, gt, gtsummary, here, patchwork, scales, showtext, survival, survminer, tidyverse)
+pacman::p_load(autoReg, broom, corrplot, extrafont, forestplot, ggsurvfit, grid, gridExtra, gt, gtsummary, here, patchwork, scales, showtext, survival, survminer, tidyverse)
 
 # Create the 'data/processed' subdirectory if not already accessible
 data_processed_dir <- here("data", "processed")
@@ -59,8 +59,8 @@ if (!dir.exists(survival_curves_plots_dir)) {
 }
 
 # Load the .rds files
-complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all_5_year_followup.rds"))
-# complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all_10_year_followup.rds"))
+# complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all_5_year_followup.rds"))
+complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all_10_year_followup.rds"))
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
@@ -219,141 +219,6 @@ custom_theme <- theme_classic() +
 
 custom_theme_trio_layout <- theme_classic() + 
   customization_trio_layout
-```
-
-# Define Helper Functions
-
-```{r Define a Function to Modify, Plot, and Save Individual Schoenfeld Residual Plots for a Specified Model}
-# Define a function to modify, plot, and save individual Schoenfeld residual plots for a specified model
-plot_schoenfeld <- function(cox_zph_fit, model_number, var_number, var_label) {
-  # Ensure 'var_number' is within the bounds of the model
-  num_vars <- length(cox_zph_fit$var)
-  if(var_number > num_vars) {
-    stop("var_number exceeds the number of variables in the model")
-  }
-
-  # Generate the plot
-  p <- ggcoxzph(cox_zph_fit,
-                point.size = 2,
-                point.col = "#EF5350",
-                ggtheme = custom_theme)
-
-  plot_data <- ggplot_build(p[[var_number]])
-  plot_data$plot$labels$y <- var_label
-  plot_gtable <- ggplot_gtable(plot_data)
-
-  # Construct the file name and file path
-  plot_name <- paste("schoenfeld_plot_for_model_", model_number, "_", var_number, ".png", sep = "")
-  plot_path <- file.path(schoenfeld_residuals_plots_dir, plot_name)
-
-  # Save the plot
-  ggsave(plot_path, plot_gtable, width = 7, height = 5, dpi = 300)
-}
-
-# Define a function to modify and plot side-by-side Schoenfeld plots for a given model
-plot_schoenfeld_combined_layout <- function(cox_zph_fit, var_number, var_label) {
-  p <- ggcoxzph(cox_zph_fit,
-                point.size = 3,
-                point.col = "#EF5350",
-                ggtheme = custom_theme_trio_layout)
-
-  plot_data <- ggplot_build(p[[var_number]])
-  plot_data$plot$labels$y <- var_label
-  plot_gtable <- ggplot_gtable(plot_data)
-
-  return(plot_gtable)
-}
-```
-
-```{r Define a Function to Map Original Variable Names to Preferred Labels}
-# Define a function to map original variable names to preferred labels
-get_var_labels <- function(model, var_name_mapping) {
-  # Extract the variable names from the model coefficients
-  var_names <- names(coef(model))
-  
-  # Initialize an empty vector to store the mapped labels
-  var_labels <- vector("character", length = length(var_names))
-  
-  # Iterate over each variable name to find and assign the corresponding label
-  for (i in seq_along(var_names)) {
-    var_name <- var_names[i]
-    # Split the variable name on ':' and ' ' to handle interaction terms and factor levels
-    split_name <- unlist(strsplit(var_name, split = ":| ", perl = TRUE))
-    
-    # Attempt to match each part of the split name with keys in the var_name_mapping
-    label_parts <- sapply(split_name, function(part) {
-      # Check if the part directly matches a key in the var_name_mapping
-      if (part %in% names(var_name_mapping)) {
-        return(var_name_mapping[part])
-      } else {
-        # If the part is a level of a factor, construct the key to find its label
-        possible_keys <- grep(part, names(var_name_mapping), value = TRUE)
-        if (length(possible_keys) > 0) {
-          # Return the first match found
-          return(var_name_mapping[possible_keys[1]])
-        } else {
-          # If no direct match or constructed key is found, return the part as is
-          return(part)
-        }
-      }
-    })
-    
-    # Combine the label parts to form the final label for the variable
-    var_labels[i] <- paste(label_parts, collapse = " ")
-  }
-  
-  # Prefix labels with "Beta(t) for" as in the original function
-  var_labels <- paste("Beta(t) for", var_labels)
-  
-  return(var_labels)
-}
-```
-
-```{r Define a Function to Create and Save the Schoenfeld Residual Plots for a Specified Model}
-# Define a function to create and save the Schoenfeld residual plots for a specified model
-save_schoenfeld_residuals_plots <- function(model, model_number, var_name_mapping, plot_width = 7, plot_height = 5.5) {
-  # Ensure schoenfeld_residuals_plots_dir is predefined or passed as a parameter
-  schoenfeld_residuals_plots_dir <- "output/plots/schoenfeld_residuals"
-  
-  # Get the zph fit
-  cox_zph_fit <- cox.zph(model)
-  
-  # Get the variable labels for the model
-  var_labels <- get_var_labels(model, var_name_mapping)
-  
-  # Ensure var_labels align with cox_zph_fit results
-  if (length(var_labels) != length(cox_zph_fit$table)) {
-    stop("Mismatch between number of variables and labels. Please check your name mapping and model variables.")
-  }
-  
-  # Initialize the list to store plots
-  schoenfeld_residuals_plots <- vector("list", length(var_labels))
-  
-  # Generate and save each plot
-  for (i in seq_along(var_labels)) {
-    plot_name <- paste("schoenfeld_residuals_model_", model_number, "_var_", i, ".png", sep = "")
-    plot_path <- file.path(schoenfeld_residuals_plots_dir, plot_name)
-    
-    # Check for valid index before plotting
-    if (i <= length(cox_zph_fit$table)) {
-      schoenfeld_residuals_plots[[i]] <- plot_schoenfeld_combined_layout(cox_zph_fit, i, var_labels[i])
-      ggsave(plot_path, schoenfeld_residuals_plots[[i]], width = plot_width, height = plot_height, dpi = 300)
-    } else {
-      warning(paste("Skipping index", i, "- out of bounds for cox_zph_fit$table."))
-    }
-  }
-  
-  return(schoenfeld_residuals_plots)
-}
-```
-
-```{r Define a Function to Combine and Save Grouped Schoenfeld Residual Plots}
-# Define a function to combine and save grouped plots
-save_combined_plots <- function(plots, start_index, end_index, ncol, file_name) {
-  combined_plot <- do.call(grid.arrange, c(plots[start_index:end_index], ncol = ncol))
-  file_path <- file.path(schoenfeld_residuals_plots_dir, file_name) # Assuming schoenfeld_residuals_plots_dir is defined
-  ggsave(file_path, plot = combined_plot, width = 21, height = 5.5)
-}
 ```
 
 # Cox Proportional Hazards Regression
@@ -603,7 +468,7 @@ tbl_nested_models <- tbl_nested_models |>
   gt::tab_options(table.font.size = 'small')
 
 # Save the table
-gtsave(tbl_nested_models, here(tables_dir, "table_2_nested_cox_regression_models.png"))
+gtsave(tbl_nested_models, here(tables_dir, "table_2_nested_cox_regression_models_10_year_followup.png"))
 ```
 
 ```{r Display and Save Cox Proportional Hazards Model Results in Separate Summary Tables}
@@ -660,11 +525,11 @@ print(gt_summary_model_4)
 print(gt_summary_model_5)
 
 # Save the Cox proportional hazards models as R objects
-saveRDS(model_1, here(data_processed_dir, "cox_model_1_5_year_followup.rds"))
-saveRDS(model_2, here(data_processed_dir, "cox_model_2_5_year_followup.rds"))
-saveRDS(model_3, here(data_processed_dir, "cox_model_3_5_year_followup.rds"))
-saveRDS(model_4, here(data_processed_dir, "cox_model_4_5_year_followup.rds"))
-saveRDS(model_5, here(data_processed_dir, "cox_model_5_5_year_followup.rds"))
+saveRDS(model_1, here(data_processed_dir, "cox_model_1_10_year_followup.rds"))
+saveRDS(model_2, here(data_processed_dir, "cox_model_2_10_year_followup.rds"))
+saveRDS(model_3, here(data_processed_dir, "cox_model_3_10_year_followup.rds"))
+saveRDS(model_4, here(data_processed_dir, "cox_model_4_10_year_followup.rds"))
+saveRDS(model_5, here(data_processed_dir, "cox_model_5_10_year_followup.rds"))
 # saveRDS(model_6, here(data_processed_dir, "cox_model_6_5_year_followup.rds"))
 ```
 
@@ -696,15 +561,15 @@ model_5_vif <- lm(as.formula(paste("event_status ~", paste(all_proposed_covariat
                   data = complete_cases_all)
 
 # Create a gtsummary table for the model
-vif_table <- tbl_regression(model_5_vif, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
-  modify_header(label ~ "**VIF Summary Table**", p.value ~ "**_p_**") |>
+vif_table <- tbl_regression(model_5_vif, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 3)) |>
+  modify_header(label ~ "**VIF Summary Table**", p.value ~ "**_p_-value**") |>
   bold_labels() |>
   bold_p() |>
   add_vif() |>
   as_gt()
 
-# Define the file path using here() and save the gt table as a PNG file
-gtsave(vif_table, here(tables_dir, "table_3_vif_summary_table.png"))
+# Save the table
+gtsave(vif_table, here(tables_dir, "table_3_vif_summary_table_10_year_followup.png"))
 
 # Display the table in the console
 vif_values <- car::vif(model_5_vif)
@@ -713,12 +578,13 @@ print(vif_values)
 
 ```{r Assess Multicollinearity via the Correlation Matrix}
 predictors <- complete_cases_all |>
+  # Exclude the survival object variables and non-model covariates
   select(-id, -event_status, -time_to_event_in_years, -rehab_payor_primary,
          -drs_total_at_year_1, -fim_total_at_year_1, -gose_total_at_year_1,
          -mental_health_tx_lifetime_at_injury, -mental_health_tx_past_year_at_injury,
          -psych_hosp_hx_lifetime_at_injury, -psych_hosp_hx_past_year_at_injury,
          -suicide_attempt_hx_lifetime_at_injury, -suicide_attempt_hx_past_year_at_injury,
-         -suicide_attempt_hx_past_year_at_year_1)  # Exclude the survival object variables and non-model covariates
+         -suicide_attempt_hx_past_year_at_year_1)
 
 # Select only numeric columns
 numeric_predictors <- predictors |>
@@ -736,10 +602,10 @@ rownames(correlation_matrix) <- var_name_mapping[rownames(correlation_matrix)]
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 
 # Define the file path for saving the plot
-plot_file_path <- file.path(multicollinearity_plots_dir, "correlation_matrix.png")
+plot_file_path <- file.path(multicollinearity_plots_dir, "correlation_matrix_10_year_followup.png")
 
 # Save the correlation matrix plot to a file
-png(filename = plot_file_path, width = 4000, height = 3000, res = 300)  # 300 DPI for high resolution
+png(filename = plot_file_path, width = 4000, height = 3000, res = 300)
 par(family = "Proxima Nova")
 # Visualize the correlation matrix
 corrplot(correlation_matrix, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45,
@@ -845,16 +711,17 @@ The steps involved in conducting a global Schoenfeld test are generally as follo
 - **If the test indicates non-significance,** it suggests that there is no strong evidence against the proportional hazards assumption, and the model may be considered appropriate under this assumption.
 - **If the test is significant,** it suggests that the proportional hazards assumption may not hold for one or more covariates in the model, indicating the need for further investigation or model adjustment. This could involve examining individual covariates more closely, incorporating time-varying covariates, or using alternative modeling approaches that do not rely on the proportional hazards assumption.
 
+# Define Helper Functions
+
 ```{r Test the Proportional Hazards Assumption for the Cox Regression Model Fit of All Proposed Covariates Using the Schoenfeld Residuals Test}
-# Perform the Schoenfeld test on Models 2-5
-schoenfeld_test_results_model_1 <- cox.zph(model_1)
-schoenfeld_test_results_model_2 <- cox.zph(model_2)
-schoenfeld_test_results_model_3 <- cox.zph(model_3)
-schoenfeld_test_results_model_4 <- cox.zph(model_4)
-schoenfeld_test_results_model_5 <- cox.zph(model_5)
+# Perform the Schoenfeld test on Models 1-5
+schoenfeld_test_results_model_1 <- cox.zph(model_1, transform = "identity")
+schoenfeld_test_results_model_2 <- cox.zph(model_2, transform = "identity")
+schoenfeld_test_results_model_3 <- cox.zph(model_3, transform = "identity")
+schoenfeld_test_results_model_4 <- cox.zph(model_4, transform = "identity")
+schoenfeld_test_results_model_5 <- cox.zph(model_5, transform = "identity")
 
-
-# Function to extract results into a data frame
+# Define a function to extract results into a data frame
 extract_schoenfeld_results <- function(test_result) {
   data.frame(
     Variable = rownames(test_result$table),
@@ -871,19 +738,23 @@ schoenfeld_results_model_3 <- extract_schoenfeld_results(schoenfeld_test_results
 schoenfeld_results_model_4 <- extract_schoenfeld_results(schoenfeld_test_results_model_4)
 schoenfeld_results_model_5 <- extract_schoenfeld_results(schoenfeld_test_results_model_5)
 
-# Function to create a gt table for the results with variable renaming
+# Define a function to create a gt table for the results with variable renaming
 create_gt_table <- function(results_df, model_name, var_name_mapping) {
   results_df <- results_df |>
     mutate(Variable = var_name_mapping[Variable])
-  
+
   results_df |>
     gt() |>
     tab_header(
       title = paste("Schoenfeld Residuals Test Results for", model_name)
     ) |>
     fmt_number(
-      columns = c(chisq, df, p),
+      columns = c(chisq, df),        # Format only chisq and df
       decimals = 3
+    ) |>
+    fmt(                           # New formatting for p-values
+      columns = "p",
+      fns = function(x) ifelse(x < 0.001, "<0.001", sprintf("%.3f", x))  # Conditional formatting
     ) |>
     cols_label(
       Variable = "Characteristic",
@@ -923,14 +794,15 @@ gt_table_model_4
 gt_table_model_5
 
 # Print the Schoenfeld test results in the console
+print(schoenfeld_test_results_model_1)
 print(schoenfeld_test_results_model_2)
 print(schoenfeld_test_results_model_3)
 print(schoenfeld_test_results_model_4)
 print(schoenfeld_test_results_model_5)
 ```
 
-```{r Plot the Results of the Schoenfeld Test for Model 5 (All Proposed Covariates)}
-# Variable labels for each covariate in Model 5
+```{r Define a Function to Create and Save the Schoenfeld Residual Plots for a Specified Model}
+# Define the preferred variable labels for each covariate in Model 5
 var_labels <- c("Beta(t) for Depression Level at Year 1",
                 "Beta(t) for History of Mental Health Treatment",
                 "Beta(t) for History of Psychiatric Hospitalization",
@@ -947,28 +819,32 @@ var_labels <- c("Beta(t) for Depression Level at Year 1",
                 "Beta(t) for Problematic Substance Use at Year 1",
                 "Beta(t) for Function Factor Score at Year 1")
 
-# Create and save the Schoenfeld residual plots for Model 5
-schoenfeld_residuals_plots <- list()
-for (i in 1:length(var_labels)) {
-  plot_name <- paste("schoenfeld_residuals_model_5_var_", i, ".png", sep = "")
-  plot_path <- here(schoenfeld_residuals_plots_dir, plot_name)
-  schoenfeld_residuals_plots[[i]] <- plot_schoenfeld_combined_layout(schoenfeld_test_results_model_5, i, var_labels[i])
-  ggsave(plot_path, schoenfeld_residuals_plots[[i]], width = 7, height = 5, dpi = 300)
+# Define a function to create and save the plot with custom x-axis labels
+create_plot <- function(index, label) {
+  # File path for each plot
+  plot_file <- file.path(schoenfeld_residuals_plots_dir, paste0("plot_", index, ".png"))
+  
+  # Save each plot to a PNG file with 300 dpi resolution
+  png(plot_file, width = 2400, height = 1600, res = 300, family = "Proxima Nova")
+  
+  # Plot the residual with the custom y-axis label and no x-axis
+  plot(schoenfeld_test_results_model_5[index], main = "Proportional Hazards Assumption Test", xlab = "Time (in years)", ylab = label, xaxt = "n", family = "Proxima Nova")
+  abline(h = 0, lty = 3, col = "red")
+  
+  # Manually set x-axis labels
+  axis(1, at = axTicks(1), labels = axTicks(1), family = "Proxima Nova")
+  
+  # Close the PNG device
+  dev.off()
 }
 
-# Define a function to combine and save grouped plots
-save_combined_plots <- function(plots, start_index, end_index, ncol, file_name) {
-  combined_plot <- do.call(grid.arrange, c(plots[start_index:end_index], ncol = ncol))
-  file_path <- here(schoenfeld_residuals_plots_dir, file_name)
-  ggsave(file_path, plot = combined_plot, width = 21, height = 5.5)
+# Loop through each variable and create the plots
+for (i in seq_along(var_labels)) {
+  create_plot(i, var_labels[i])
 }
 
-# Combine and save plots in groups
-save_combined_plots(schoenfeld_residuals_plots, 1, 3, 3, "combined_schoenfeld_plot_for_model_5_vars_1-3.png")
-save_combined_plots(schoenfeld_residuals_plots, 4, 6, 3, "combined_schoenfeld_plot_for_model_5_vars_4-6.png")
-save_combined_plots(schoenfeld_residuals_plots, 7, 9, 3, "combined_schoenfeld_plot_for_model_5_vars_7-9.png")
-save_combined_plots(schoenfeld_residuals_plots, 10, 12, 3, "combined_schoenfeld_plot_for_model_5_vars_10-12.png")
-save_combined_plots(schoenfeld_residuals_plots, 13, 15, 3, "combined_schoenfeld_plot_for_model_5_vars_13-15.png")
+# Display an informative message
+cat("Plots saved to:", schoenfeld_residuals_plots_dir, "\n")
 ```
 
 2.  **Linearity in the Log-Hazard:**
@@ -1043,7 +919,7 @@ martingale_plot_data <- martingale_plot_data |>
 gg.calendar_year_of_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Calendar_Year, y = Martingale_Residuals)) +
   geom_point() + # Plot points
   # geom_hline(yintercept = 0, color = "#EF5350", size = 1.25) + # Add a horizontal line at y = 0
-  geom_smooth(method = "loess", span = 0.9, color = "#EF5350", size = 1.25) + # Add a Loess curve
+  geom_smooth(method = "loess", span = 0.9, color = "#EF5350", linewidth = 1.25) + # Add a Loess curve
   labs(x = "Calendar Year of Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Calendar Year of Injury") +
   scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
   theme_minimal(base_family = "Proxima Nova") +
@@ -1068,7 +944,7 @@ martingale_plot_data <- martingale_plot_data |>
 gg.age_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Age_at_Injury, y = Martingale_Residuals)) +
   geom_point() + # Plot points
   # geom_hline(yintercept = 0, color = "#EF5350", size = 1.25) + # Add a horizontal line at y = 0
-  geom_smooth(method = "loess", color = "#EF5350", size = 1.25) + # Add a Loess curve
+  geom_smooth(method = "loess", color = "#EF5350", linewidth = 1.25) + # Add a Loess curve
   labs(x = "Age at Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Age at Injury") +
   scale_x_continuous(breaks = seq(16, 96, by = 20), limits = c(15, 100)) + # Adjust x-axis tick values and limits
   scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
@@ -1094,7 +970,7 @@ martingale_plot_data <- martingale_plot_data |>
 gg.education_level_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Education_Level, y = Martingale_Residuals)) +
   geom_point() + # Plot points
   # geom_hline(yintercept = 0, color = "#EF5350", size = 1.25) + # Add a horizontal line at y = 0
-  geom_smooth(method = "loess", color = "#EF5350", size = 1.25) + # Add a Loess curve
+  geom_smooth(method = "loess", color = "#EF5350", linewidth = 1.25) + # Add a Loess curve
   labs(x = "Education Level at Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Education Level at Injury") +
   scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
   theme_minimal(base_family = "Proxima Nova") +
@@ -1119,7 +995,7 @@ martingale_plot_data <- martingale_plot_data |>
 gg.function_factor_score_at_year_1_vs_martingale <- ggplot(martingale_plot_data, aes(x = Function_Factor_Score, y = Martingale_Residuals)) +
   geom_point() + # Plot points
   # geom_hline(yintercept = 0, color = "#EF5350", size = 1.25) + # Add a horizontal line at y = 0
-  geom_smooth(method = "loess", color = "#EF5350", size = 1.25) + # Add a Loess curve
+  geom_smooth(method = "loess", color = "#EF5350", linewidth = 1.25) + # Add a Loess curve
   labs(x = "Function Factor Score at Year 1", y = "Martingale Residuals", title = "Martingale Residuals vs. Function Factor Score at Year 1") +
   scale_y_continuous(breaks = seq(-3.0, 2.0, by = 1.0), limits = c(-3.0, 2.0)) + # Adjust y-axis tick values
   theme_minimal(base_family = "Proxima Nova") +
@@ -1182,13 +1058,13 @@ rownames(average_participant) <- letters[1:nrow(average_participant)]
 ```
 
 ```{r Generate Survival Curves}
-# Fit the survival model
+# Fit the survival model for Model 1
 cxsf0 <- survfit(model_1, newdata = strata, conf.type = "none")
 surv_cxsf0 <- surv_summary(cxsf0, data = complete_cases_all) |>  # Summarize the survival model
   tibble()
 m_newdat0 <- average_participant[as.character(surv_cxsf0$strata), ]  # Match new data with survival summary strata
 
-# Fit the survival model
+# Fit the survival model for Model 5
 cxsf <- survfit(model_5, newdata = average_participant, conf.type = "none")
 surv_cxsf <- surv_summary(cxsf, data = complete_cases_all) |>  # Summarize the survival model
   tibble()
@@ -1260,18 +1136,43 @@ ggsave(here(survival_curves_plots_dir, "figure_19-2_kaplan_meier_curves_model_5_
 ```
 
 ```{r Plot the Survival Curves with Risk Set, include = FALSE}
-# Fit the Kaplan-Meier survival curve based on the Cox model
-surv_fit <- survfit(model_5)
+# Fit a survival model using survfit2 from ggsurvfit
+surv_model_5 <- survfit2(Surv(time_to_event_in_years, event_status) ~ depression_level_at_year_1 + sex, data = complete_cases_all)
 
-# Plot the Kaplan-Meier curve with ggplot2
-ggsurvplot(surv_fit, data = complete_cases_all, 
-           risk.table = TRUE, # Add risk table
-           conf.int = TRUE, # Add confidence interval
-           pval = TRUE, # Add p-value
-           ggtheme = theme_classic(), # Use minimal theme for plot
-           palette = "Dark2") # Use Dark2 color palette
+# Define the color palette with enough values
+color_palette <- c("#90cbf9", "#2196f3", "#114b7a", "#f990cb", "#f32196", "#7a114b")
+
+# Generate the Kaplan-Meier survival curve plot with risk table using ggsurvfit
+gg.surv.model5 <- ggsurvfit(surv_model_5) +
+  labs(
+    x = "Time After Initial Interview (years)",
+    y = "Survival Probability",
+    title = "Effect of Depression Level at Year 1 and Sex on Survival"
+  ) +
+  scale_color_manual(
+    values = color_palette,
+    name = "Depression Level at Year 1"
+  ) +
+  scale_linetype_manual(
+    values = c("solid", "dashed"),
+    name = "Sex"
+  ) +
+  theme_classic() +
+  customization +
+  theme(legend.position = c(0.075, 0.20)) +
+  coord_cartesian(xlim = c(0, 5), ylim = c(0, 1)) +
+  add_risktable(
+    risk.table = TRUE,
+    risk.table.height = 0.25,
+    surv.scale = "percent",
+    break.time.by = 1,
+    conf.int = FALSE,
+    censor = FALSE
+  )
+
+# Print the plot
+print(gg.surv.model5)
 ```
-
 
 ```{r Create Forest Plot of Model 5 Results (Approach 1: forestplot)}
 # Extract model summary
