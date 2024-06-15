@@ -282,7 +282,30 @@ merged_data <- merged_data |>
   ) |>
   # Impute the date_of_year_1_followup to all subsequent observations per id
   group_by(id) |>
-  fill(date_of_year_1_followup, .direction = "downup")
+  fill(date_of_year_1_followup, .direction = "downup") |>
+  ungroup()
+```
+
+```{r Create the Variable Corresponding to the Function Factor Score Quintiles}
+# Calculate quintile cut points
+quintile_breaks <- merged_data |>
+  filter(data_collection_period == 1) |>
+  pull(func_score_at_year_1) |>
+  quantile(probs = seq(0, 1, by = 0.20), na.rm = TRUE)
+
+# Ensure quintile cut points are unique
+quintile_breaks <- unique(quintile_breaks)
+
+merged_data <- merged_data |>
+  # Create and impute quartiles for func_score_at_year_1_q5
+  group_by(id) |>
+  mutate(
+    func_score_at_year_1_q5 = if_else(data_collection_period == 1 & !is.na(func_score_at_year_1),
+                                      cut(func_score_at_year_1, breaks = quintile_breaks, include.lowest = TRUE, labels = FALSE),
+                                      NA_integer_)
+  ) |>
+  fill(func_score_at_year_1_q5, .direction = "downup") |>
+  ungroup()
 ```
 
 ```{r Create a Sample Data Frame, include = FALSE}
@@ -638,6 +661,7 @@ merged_data <- merged_data |>
     fim_total_at_year_1,
     gose_total_at_year_1,
     func_score_at_year_1,
+    func_score_at_year_1_q5,
     mental_health_tx_lifetime_at_injury,
     mental_health_tx_past_year_at_injury,
     psych_hosp_hx_lifetime_at_injury,
@@ -657,51 +681,32 @@ merged_data <- merged_data |>
 The following function is designed to record the size of a study sample after applying a specific study eligibility criterion. Essentially, this function tracks the number of participants who remain in the sample after each stage of filtering. First, it ensures that the specified log directory exists, creating it if necessary. It then calculates the number of unique participant IDs that remain in the dataset as well as the total number of observations or rows that remain in the dataset after applying the study eligibility criterion. These values are then stored in a log file named 'sample_sizes.log' within the specified directory.
 
 ```{r Define a Function to Log the Sample Sizes After Applying Each Study Eligibility Criterion}
-#' Log Sample Size After Applying Study Eligibility Criteria
+#' Log Sample Size
 #'
-#' This function logs the updated sample size after applying a specific study eligibility criterion.
+#' This function logs the number of unique IDs and total observations in a dataset after applying a specified criterion.
+#' If an original dataset is provided, it also logs the number of unique participants in the original dataset.
 #'
-#' @param data A data frame representing the study data after applying the criterion.
-#' @param criterion_number An integer representing the sequence number of the applied criterion.
-#' @param base_directory A string indicating the directory where the log file will be stored. 
-#'        Default is "logs".
+#' @param data A data frame containing the dataset after applying the criterion.
+#' @param criterion_number An integer specifying the criterion number applied to the data.
+#' @param base_directory A character string specifying the base directory where the log file will be stored. Defaults to "logs".
+#' @param original_data An optional data frame containing the original dataset before applying any criterion. Defaults to NULL.
 #'
-#' @details
-#' The function performs the following steps:
-#' 1. Ensures the existence of the specified logging directory.
-#' 2. Creates or accesses a log file named 'sample_sizes.log' within this directory.
-#' 3. Calculates and logs the number of unique participant IDs and the total number 
-#'    of observations in the data that remain after applying the study eligibility criterion.
+#' @details This function ensures that the base directory exists and then creates a log file named "sample_sizes.log" in the specified directory.
+#' It calculates the number of unique IDs and total observations in the provided dataset. If the original dataset is provided,
+#' it also calculates the number of unique participants in the original dataset. The function then formats these numbers with commas
+#' and constructs a log message that is appended to the log file.
+#'
+#' @return This function does not return any value. It writes the log message to a file.
 #'
 #' @examples
-#' # Log sample size for criterion 1 in default directory
-#' log_sample_size(my_data, 1)
-#'
-#' # Log sample size for criterion 2 in a custom directory
-#' log_sample_size(my_data, 2, "custom_logs")
+#' \dontrun{
+#' # Example usage
+#' data <- data.frame(id = c(1, 2, 2, 3, 3, 3))
+#' original_data <- data.frame(id = c(1, 2, 3, 4, 5))
+#' log_sample_size(data, criterion_number = 1, original_data = original_data)
+#' }
 #'
 #' @export
-log_sample_size <- function(data, criterion_number, base_directory = "logs") {
-  # Ensure the 'logs' directory exists
-  dir.create(base_directory, showWarnings = FALSE)
-
-  # Create the log file name
-  log_file <- file.path(base_directory, "sample_sizes.log")
-
-  # Calculate the number of unique IDs and total observations
-  unique_ids <- length(unique(data$id))
-  total_observations <- nrow(data)
-
-  # Construct the log message
-  message <- sprintf("Criterion %d: Unique IDs = %d, Total Observations = %d\n", 
-                     criterion_number, unique_ids, total_observations)
-
-  # Append the message to the log file
-  cat(message, file = log_file, append = TRUE)
-}
-```
-
-```{r Log Sample Sizes with Original Sample Size Included}
 log_sample_size <- function(data, criterion_number, base_directory = "logs", original_data = NULL) {
   # Ensure the 'logs' directory exists
   dir.create(base_directory, showWarnings = FALSE)
@@ -733,7 +738,6 @@ log_sample_size <- function(data, criterion_number, base_directory = "logs", ori
   cat(message, file = log_file, append = TRUE)
 }
 ```
-
 
 The following function is designed to record the participant IDs of participants who were removed from the study sample after applying a specific study eligibility criterion. First, the function ensures that the specified log directory exists, creating it if necessary. It then determines the participant IDs that were present in the original dataset but absent in the filtered dataset, indicating their removal from the sample due to failure to fulfill the study eligibility criterion. These removed participant IDs are then stored in a log file named 'criterion\_\[number\]\_removed_ids.log' within the specified directory, where "\[number\]" is adjusted to match the specific criterion number.
 
@@ -871,7 +875,7 @@ The `apply_criterion_1` function is designed to filter and process data based on
 
 Based on the data collection period and the flags set previously, the function determines which observations to include in the returned data frame. Event status is then determined based on the availability of valid date data in the `date_of_death` column (in which case, `event_status` = 1); if the column contains NA, then `event_status` is set to 0. Each participant's time to event (i.e., time to censorship or time to death) is then calculated
 
-```{r Define a Function to Apply Study Eligibility Criterion 1 (Inclusion): Injured between October 1, 2006 and October 1, 2012 with Follow-Up for Up to 10 Years Post-Injury}
+```{r Define a Function to Apply Study Eligibility Criterion 1 (Inclusion): Injured between October 1, 2006 and October 1, 2012 with Follow-Up for Up to 5 or 10 Years Post-Injury}
 #' Apply Study Eligibility Criterion 1
 #'
 #' This function applies a specified study eligibility criterion (Criterion 1) to filter 
@@ -895,8 +899,8 @@ apply_criterion_1 <- function(data, study_entry_period_start_date, study_entry_p
     arrange(id, date_of_followup, date_of_death) |>
     group_by(id) |>
     mutate(
-      # study_end_date = date_of_year_1_followup + years(5),
       participant_end_date = date_of_year_1_followup + years(5),
+      # participant_end_date = date_of_year_1_followup + years(10),
       valid_followup = is_within_study_period(date_of_year_1_followup, date_of_followup) | 
         is_within_study_period(date_of_year_1_followup, date_of_death),
       special_case = status_at_followup %in% c("Lost", "Refused", "Incarcerated", "Withdrew", "No Funding"),
@@ -907,7 +911,6 @@ apply_criterion_1 <- function(data, study_entry_period_start_date, study_entry_p
     ) |>
     filter(include_observation) |>
     mutate(
-      # event_status = if_else(!is.na(date_of_death) & date_of_death <= study_end_date, 1, 0),
       event_status = if_else(!is.na(date_of_death) & date_of_death <= participant_end_date, 1, 0),
       time_to_censorship = if_else(is.na(date_of_death) & is.na(date_of_followup), 0, 
                                    if_else(!is.na(date_of_followup), as.numeric(difftime(date_of_followup, date_of_year_1_followup, units = "days")), NA_real_)),
@@ -1080,7 +1083,8 @@ sampled_analytic_data <- analytic_data |>
   arrange(id, data_collection_period)
 
 # Write the sampled data frame to a CSV file
-write.csv(sampled_analytic_data, file = "~/Downloads/sampled_analytic_data.csv", row.names = FALSE)
+write.csv(sampled_analytic_data, file = "~/Downloads/5_year_followup/sampled_analytic_data.csv", row.names = FALSE)
+# write.csv(sampled_analytic_data, file = "~/Downloads/10_year_followup/sampled_analytic_data.csv", row.names = FALSE)
 ```
 
 ## Calculate Depression Level at Year 1
@@ -1401,6 +1405,7 @@ analytic_data_imputed <- analytic_data_imputed |>
     fim_total_at_year_1,
     gose_total_at_year_1,
     func_score_at_year_1,
+    func_score_at_year_1_q5,
     mental_health_tx_lifetime_at_injury,
     mental_health_tx_past_year_at_injury,
     mental_health_tx_hx,
@@ -1423,10 +1428,12 @@ analytic_data_imputed <- analytic_data_imputed |>
   arrange(id, data_collection_period)
 
 # Save the 'analytic_data_imputed' data frame in a single .rds file
-saveRDS(analytic_data_imputed, here(data_processed_dir, "analytic_data_imputed_5_year_followup.rds"))
+saveRDS(analytic_data_imputed, here(data_processed_dir, "/5_year_followup/analytic_data_imputed.rds"))
+# saveRDS(analytic_data_imputed, here(data_processed_dir, "/10_year_followup/analytic_data_imputed.rds"))
 
 # Save the 'analytic_data_imputed' data frame as a CSV file in the 'data/processed' subdirectory
-write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_imputed_5_year_followup.csv"), row.names = FALSE)
+write.csv(analytic_data_imputed, file.path(data_processed_dir, "/5_year_followup/analytic_data_imputed.csv"), row.names = FALSE)
+# write.csv(analytic_data_imputed, file.path(data_processed_dir, "/10_year_followup/analytic_data_imputed.csv"), row.names = FALSE)
 ```
 
 ## Create a Sample Data Frame
@@ -1435,8 +1442,8 @@ write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_im
 # Create a vector of unique participant IDs
 unique_participant_ids <- unique(analytic_data_imputed$id)
 
-# Randomly sample 15 participant IDs
-sampled_participant_ids <- sample(unique_participant_ids, 15)
+# # Randomly sample 15 participant IDs
+# sampled_participant_ids <- sample(unique_participant_ids, 15)
 
 # Create a filtered data frame with all observations for the sampled participants
 sampled_analytic_data <- analytic_data_imputed |>
@@ -1445,7 +1452,8 @@ sampled_analytic_data <- analytic_data_imputed |>
   arrange(id, data_collection_period)
 
 # Save the 'sampled_analytic_data' data frame as a CSV file in the '~/Downloads' directory
-write.csv(sampled_analytic_data, file = "~/Downloads/sampled_analytic_data_5_year_followup.csv", row.names = FALSE)
+write.csv(sampled_analytic_data, file = "~/Downloads/5_year_followup/sampled_analytic_data.csv", row.names = FALSE)
+# write.csv(sampled_analytic_data, file = "~/Downloads/10_year_followup/sampled_analytic_data.csv", row.names = FALSE)
 ```
 
 ```{r Retain Only the Last Valid Observation Per Participant}
@@ -1551,18 +1559,20 @@ analytic_data_final <- analytic_data_final |>
   )
 
 # Save the 'analytic_data_final' data frame in a single .rds file
-saveRDS(analytic_data_final, here(data_processed_dir, "analytic_data_final_5_year_followup.rds"))
+saveRDS(analytic_data_final, here(data_processed_dir, "/5_year_followup/analytic_data_final.rds"))
+# saveRDS(analytic_data_final, here(data_processed_dir, "/10_year_followup/analytic_data_final.rds"))
 
 # Save the 'analytic_data_final' data frame as a CSV file in the 'data/processed' subdirectory
-write.csv(analytic_data_final, file.path(data_processed_dir, "analytic_data_final_5_year_followup.csv"), row.names = FALSE)
+write.csv(analytic_data_final, file.path(data_processed_dir, "/5_year_followup/analytic_data_final.csv"), row.names = FALSE)
+# write.csv(analytic_data_final, file.path(data_processed_dir, "/10_year_followup/analytic_data_final.csv"), row.names = FALSE)
 ```
 
 ```{r Create a Sample Data Frame of the Final Analytic Data, include=FALSE}
 # Create a vector of unique participant IDs
 unique_participant_ids <- unique(analytic_data_final$id)
 
-# Randomly sample 15 participant IDs
-sampled_participant_ids <- sample(unique_participant_ids, 15)
+# # Randomly sample 15 participant IDs
+# sampled_participant_ids <- sample(unique_participant_ids, 15)
 
 # Create a filtered data frame with all observations for the sampled participants
 sampled_analytic_data_final <- analytic_data_final |>
@@ -1571,7 +1581,8 @@ sampled_analytic_data_final <- analytic_data_final |>
   arrange(id, data_collection_period)
 
 # Save the 'sampled_analytic_data_final' data frame to a CSV file in the '~/Downloads' directory
-write.csv(sampled_analytic_data_final, file = "~/Downloads/sampled_analytic_data_final_5_year_followup.csv", row.names = FALSE)
+write.csv(sampled_analytic_data_final, file = "~/Downloads/5_year_followup/sampled_analytic_data_final.csv", row.names = FALSE)
+# write.csv(sampled_analytic_data_final, file = "~/Downloads/10_year_followup/sampled_analytic_data_final.csv", row.names = FALSE)
 ```
 
 ```{r Create Long Format Data Frame}
@@ -1583,9 +1594,11 @@ analytic_data_final_long <- analytic_data_imputed |>
   filter(id %in% id_list)
 
 # Save the 'analytic_data_final' data frame in a single .rds file
-saveRDS(analytic_data_final_long, here(data_processed_dir, "analytic_data_final_long_5_year_followup.rds"))
+saveRDS(analytic_data_final_long, here(data_processed_dir, "/5_year_followup/analytic_data_final_long.rds"))
+# saveRDS(analytic_data_final_long, here(data_processed_dir, "/10_year_followup/analytic_data_final_long.rds"))
 
 # Save the 'analytic_data_final' data frame as a CSV file in the 'data/processed' subdirectory
-write.csv(analytic_data_final_long, file.path(data_processed_dir, "analytic_data_final_long_5_year_followup.csv"), row.names = FALSE)
+write.csv(analytic_data_final_long, file.path(data_processed_dir, "/5_year_followup/analytic_data_final_long.csv"), row.names = FALSE)
+# write.csv(analytic_data_final_long, file.path(data_processed_dir, "/10_year_followup/analytic_data_final_long.csv"), row.names = FALSE)
 ```
 
