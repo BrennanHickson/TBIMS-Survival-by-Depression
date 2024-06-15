@@ -35,10 +35,13 @@ if (!dir.exists(missingness_plots_dir)) {
 }
 
 # Load the .rds files
-analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_5_year_followup.rds"))
-# analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_10_year_followup.rds"))
-na_counts_for_all_proposed_covariates <- readRDS(file.path(data_processed_dir, "na_counts_for_all_proposed_covariates_5_year_followup.rds"))
-na_counts_for_select_covariates_1 <- readRDS(file.path(data_processed_dir, "na_counts_for_select_covariates_1_5_year_followup.rds"))
+analytic_data_final <- readRDS(file.path(data_processed_dir, "/5_year_followup/analytic_data_final.rds"))
+na_counts_for_all_proposed_covariates <- readRDS(file.path(data_processed_dir, "/5_year_followup/na_counts_for_all_proposed_covariates.rds"))
+na_counts_for_select_covariates <- readRDS(file.path(data_processed_dir, "/5_year_followup/na_counts_for_select_covariates.rds"))
+
+# analytic_data_final <- readRDS(file.path(data_processed_dir, "/10_year_followup/analytic_data_final.rds"))
+# na_counts_for_all_proposed_covariates <- readRDS(file.path(data_processed_dir, "/10_year_followup/na_counts_for_all_proposed_covariates.rds"))
+# na_counts_for_select_covariates <- readRDS(file.path(data_processed_dir, "/10_year_followup/na_counts_for_select_covariates.rds"))
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
@@ -86,6 +89,7 @@ all_proposed_covariates <- c("id",
                              "fim_total_at_year_1",
                              "gose_total_at_year_1",
                              "func_score_at_year_1",
+                             "func_score_at_year_1_q5",
                              "mental_health_tx_lifetime_at_injury",
                              "mental_health_tx_past_year_at_injury",
                              "mental_health_tx_hx",
@@ -101,26 +105,22 @@ all_proposed_covariates <- c("id",
                              "depression_level_at_year_1")
 
 # Define select covariates of interest (remove individual function scores and mental health history variable components)
-select_covariates_1 <- c("id",
+select_covariates <- c("id",
                          "event_status",
                          "time_to_event_in_years",
                          "time_to_censorship_in_years",
                          "time_to_expiration_in_years",
                          "age_at_censorship",
                          "age_at_expiration",
-                         "calendar_year_of_injury",
                          "sex",
                          "age_at_injury",
                          "education_level_at_injury",
                          "employment_at_injury",
-                         "marital_status_at_injury",
-                         "rehab_payor_primary",
                          "rehab_payor_primary_type",
                          "cause_of_injury",
-                         "func_score_at_year_1",
+                         "func_score_at_year_1_q5",
                          "mental_health_tx_hx",
                          "psych_hosp_hx",
-                         "problematic_substance_use_at_injury",
                          "problematic_substance_use_at_year_1",
                          "suicide_attempt_hx",
                          "depression_level_at_year_1")
@@ -149,6 +149,7 @@ var_name_mapping <- c(
   fim_total_at_year_1 = "FIM Score at Year 1",
   gose_total_at_year_1 = "GOS-E Score at Year 1",
   func_score_at_year_1 = "Function Factor Score at Year 1",
+  func_score_at_year_1_q5 = "Function Factor Score at Year 1 Quintiles",
   mental_health_tx_lifetime_at_injury = "Lifetime History of Mental Health Treatment at Injury",
   mental_health_tx_past_year_at_injury = "Past-Year History of Mental Health Treatment at Injury",
   mental_health_tx_hx = "History of Mental Health Treatment",
@@ -164,64 +165,15 @@ var_name_mapping <- c(
 )
 ```
 
-```{r Adjust the Levels of the Factor Variables and Set Preferred Reference Groups}
-# # Adjust the levels of the factor variables
-# analytic_data_final <- analytic_data_final |>
-#   mutate(
-#     depression_level_at_year_1 = factor(depression_level_at_year_1,
-#                                         levels = c("No Depression",
-#                                                    "Minor Depression",
-#                                                    "Major Depression")),
-#     mental_health_tx_hx = factor(mental_health_tx_hx,
-#                                  levels = c("Denied any history of mental health treatment",
-#                                             "Mental health treatment received prior to year preceding index injury only",
-#                                             "Mental health treatment received within year preceding index injury")),
-#     psych_hosp_hx = factor(psych_hosp_hx,
-#                            levels = c("Denied any history of psychiatric hospitalization",
-#                                       "Psychiatric hospital admission prior to year preceding index injury only",
-#                                       "Psychiatric hospital admission within year preceding index injury")),
-#     suicide_attempt_hx = factor(suicide_attempt_hx, 
-#                                 levels = c("Denied any history of suicide attempt", 
-#                                            "Suicide attempt history prior to injury", 
-#                                            "Suicide attempt in the first year post-injury")),
-#     sex = factor(sex, 
-#                  levels = c("Male", "Female")),
-#     employment_at_injury = factor(employment_at_injury, 
-#                                   levels = c("Competitively Employed", 
-#                                              "Unemployed", 
-#                                              "Student", 
-#                                              "Retired", 
-#                                              "Other")),
-#     marital_status_at_injury = factor(marital_status_at_injury,
-#                                       levels = c("Single",
-#                                                  "Married",
-#                                                  "Divorced",
-#                                                  "Other")),
-#     rehab_payor_primary_type = factor(rehab_payor_primary_type, 
-#                                       levels = c("Non-Medicaid", "Medicaid")),
-#     cause_of_injury = factor(cause_of_injury,
-#                              levels = c("Vehicular",
-#                                         "Falls",
-#                                         "Violence",
-#                                         "Other")),
-#     problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury,
-#                                                  levels = c("No",
-#                                                             "Yes")),
-#     problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1,
-#                                                  levels = c("No",
-#                                                             "Yes"))
-#   )
-```
-
 ```{r Prepare Table-Specific Data Frames}
 analytic_data_for_tables_all <- analytic_data_final |>
   mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
   select("id", all_of(all_proposed_covariates)) |>
   arrange(id)
 
-analytic_data_for_tables_select_1 <- analytic_data_final |>
+analytic_data_for_tables_select <- analytic_data_final |>
   mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
-  select("id", all_of(select_covariates_1)) |>
+  select("id", all_of(select_covariates)) |>
   arrange(id)
 ```
 
@@ -234,21 +186,21 @@ variables_to_exclude <- c("time_to_censorship_in_years",
 
 # Adjust the dataset to exclude specified variables for evaluation of missingness among model covariates
 variables_for_cc_all <- setdiff(all_proposed_covariates, variables_to_exclude)
-variables_for_cc_select_1 <- setdiff(select_covariates_1, variables_to_exclude)
+variables_for_cc_select <- setdiff(select_covariates, variables_to_exclude)
 
 # Prepare the complete-case data frames
 analytic_data_for_cc_all <- analytic_data_final |>
   select(id, all_of(variables_for_cc_all)) |>
   arrange(id)
 
-analytic_data_for_cc_select_1 <- analytic_data_final |>
-  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
-  select(id, all_of(variables_for_cc_select_1)) |>
+analytic_data_for_cc_select <- analytic_data_final |>
+  # mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select(id, all_of(variables_for_cc_select)) |>
   arrange(id)
 
 # Create a new data frame with only complete cases
 complete_cases_all <- analytic_data_for_cc_all[complete.cases(analytic_data_for_cc_all), ]
-complete_cases_select_1 <- analytic_data_for_cc_select_1[complete.cases(analytic_data_for_cc_select_1), ]
+complete_cases_select <- analytic_data_for_cc_select[complete.cases(analytic_data_for_cc_select), ]
 
 # Create a new data frame with only complete cases for tables
 complete_cases_for_tables_all <- complete_cases_all |>
@@ -261,26 +213,31 @@ complete_cases_for_tables_all <- complete_cases_all |>
          age_at_expiration,
          names(complete_cases_all)[-c(1:3)])  # Add the remaining the variables from 'complete_cases_all', excluding the first three
 
-# Save the 'complete_cases_all' data frame in a single .rds file
-saveRDS(complete_cases_all, here(data_processed_dir, "complete_cases_all_5_year_followup.rds"))
+# Save the complete_cases_all and complete_cases_select data frames in a single .rds file and CSV file
+saveRDS(complete_cases_all, here(data_processed_dir, "/5_year_followup/complete_cases_all.rds"))
+write.csv(complete_cases_all, file.path(data_processed_dir, "/5_year_followup/complete_cases_all.csv"), row.names = FALSE)
+saveRDS(complete_cases_select, here(data_processed_dir, "/5_year_followup/complete_cases_select.rds"))
+write.csv(complete_cases_select, here(data_processed_dir, "/5_year_followup/complete_cases_select.csv"), row.names = FALSE)
 
-# Save the 'complete_cases_all' data frame as a CSV file in the 'data/processed' subdirectory
-write.csv(complete_cases_all, file.path(data_processed_dir, "complete_cases_all_5_year_followup.csv"), row.names = FALSE)
+# saveRDS(complete_cases_all, here(data_processed_dir, "/10_year_followup/complete_cases_all.rds"))
+# write.csv(complete_cases_all, file.path(data_processed_dir, "/10_year_followup/complete_cases_all.csv"), row.names = FALSE)
+# saveRDS(complete_cases_select, here(data_processed_dir, "/10_year_followup/complete_cases_select.rds"))
+# write.csv(complete_cases_select, here(data_processed_dir, "/10_year_followup/complete_cases_select.csv"), row.names = FALSE)
 ```
 
 ```{r Create Incomplete-Case Subsamples}
 # Create a new data frame with only incomplete cases
 incomplete_cases_all <- analytic_data_for_cc_all[!complete.cases(analytic_data_for_cc_all), ]
-incomplete_cases_select_1 <- analytic_data_for_cc_select_1[!complete.cases(analytic_data_for_cc_select_1), ]
+incomplete_cases_select <- analytic_data_for_cc_select[!complete.cases(analytic_data_for_cc_select), ]
 ```
 
-```{r Table 1-1-1: Generate descriptive statistics table for the full analytic sample with all proposed covariates}
+```{r Table 1-1: Generate descriptive statistics table for the full analytic sample with all proposed covariates}
 # Handle missing values in depression_level_at_year_1
 analytic_data_for_tables_all <- analytic_data_for_tables_all |>
   mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, level = "Missing"))
 
 # Generate table with descriptive statistics for the final analytic sample
-table_1_1_1 <- analytic_data_for_tables_all |>
+table_1_1 <- analytic_data_for_tables_all |>
   select(-"id") |>
   tbl_summary(
     by = depression_level_at_year_1,
@@ -305,17 +262,18 @@ table_1_1_1 <- analytic_data_for_tables_all |>
   ) |>
   bold_p() |>
   as_gt() |>
-  tab_header("Table 1-1-1: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with All Proposed Covariates by Depression Level at Year 1") |>
+  tab_header("Table 1-1: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with All Proposed Covariates by Depression Level at Year 1") |>
   gtsave(
-    filename = here(output_tables_dir, "table_1-1-1_full_analytic_sample_with_all_proposed_covariates_5_year_followup.png")
+    filename = here(output_tables_dir, "/5_year_followup/table_1-1_full_analytic_sample_with_all_proposed_covariates.png")
+    # filename = here(output_tables_dir, "/10_year_followup/table_1-1_full_analytic_sample_with_all_proposed_covariates.png")
   )
 ```
 
 ![](images/table_1-1-1_full_analytic_sample_with_all_proposed_covariates.png){fig-align="center"}
 
-```{r Table 1-1-2: Generate descriptive statistics table for the complete-case sample with all proposed covariates}
+```{r Table 1-2: Generate descriptive statistics table for the complete-case sample with all proposed covariates}
 # Generate table with descriptive statistics for the final analytic sample
-table_1_1_2 <- complete_cases_for_tables_all |>
+table_1_2 <- complete_cases_for_tables_all |>
   select(-"id") |>
   tbl_summary(
     by = depression_level_at_year_1,
@@ -341,9 +299,10 @@ table_1_1_2 <- complete_cases_for_tables_all |>
   ) |>
   bold_p() |>
   as_gt() |>
-  tab_header("Table 1-1-2: Sociodemographic, Functional, and Clinical Characteristics of the Complete-Case Sample with All Proposed Covariates by Depression Level at Year 1") |>
+  tab_header("Table 1-2: Sociodemographic, Functional, and Clinical Characteristics of the Complete-Case Sample with All Proposed Covariates by Depression Level at Year 1") |>
   gtsave(
-    filename = here(output_tables_dir, "table_1-1-2_complete_case_sample_with_all_proposed_covariates_5_year_followup.png")
+    filename = here(output_tables_dir, "/5_year_followup/table_1-2_complete_case_sample_with_all_proposed_covariates.png")
+    # filename = here(output_tables_dir, "/10_year_followup/table_1-2_complete_case_sample_with_all_proposed_covariates.png")
   )
 ```
 
