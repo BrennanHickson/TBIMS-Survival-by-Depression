@@ -548,7 +548,7 @@ merged_data <- merged_data |>
     # Set 'No' as the reference group for the past-year hx of suicide attempt at time of injury covariate
     suicide_attempt_hx_lifetime_at_injury = fct_recode(suicide_attempt_hx_lifetime_at_injury,
                                               No = "0",
-                                              Yes = "1",
+                                              Yes = "1"
                                               ) |>
       fct_relevel("No", "Yes"),
     
@@ -567,9 +567,21 @@ merged_data <- merged_data |>
     # Set 'No' as the reference group for the past-year hx of suicide attempt at follow-up covariate
     suicide_attempt_hx_past_year_at_followup = fct_recode(suicide_attempt_hx_past_year_at_followup,
                                                           No = "0",
-                                                          Yes = "1",
+                                                          Yes = "1"
                                                           ) |>
-      fct_relevel("No", "Yes")
+      fct_relevel("No", "Yes"),
+    
+    # Convert 'func_score_at_year_1_q5' to a factor
+    func_score_at_year_1_q5 = as.factor(func_score_at_year_1_q5),
+    # Set 'Q5' as the reference group for the function factor score at year 1 quintiles covariate
+    func_score_at_year_1_q5 = fct_recode(func_score_at_year_1_q5,
+                                         Q1 = "1",
+                                         Q2 = "2",
+                                         Q3 = "3",
+                                         Q4 = "4",
+                                         Q5 = "5"
+                                         ) |>
+      fct_relevel("Q5", "Q4", "Q3", "Q2", "Q1")
   ) |>
   
   droplevels()  # Drop unused factor levels
@@ -806,6 +818,7 @@ log_removed_ids <- function(original_data, filtered_data, criterion_number, base
 # Define a function to dynamically calculate each participant's end date
 is_within_study_period <- function(date_of_year_1_followup, date_of_followup) {
   participant_end_date <- date_of_year_1_followup + years(5)
+  # participant_end_date <- date_of_year_1_followup + years(10)
   !is.na(date_of_followup) & date_of_followup >= study_entry_period_start_date & date_of_followup <= participant_end_date
 }
 ```
@@ -1555,7 +1568,13 @@ analytic_data_final <- analytic_data_final |>
     suicide_attempt_hx = factor(suicide_attempt_hx, 
                                 levels = c("Denied any history of suicide attempt", 
                                            "Suicide attempt history prior to injury", 
-                                           "Suicide attempt in the first year post-injury"))
+                                           "Suicide attempt in the first year post-injury")),
+    func_score_at_year_1_q5 = factor(func_score_at_year_1_q5,
+                                     levels = c("Q5",
+                                                "Q4",
+                                                "Q3",
+                                                "Q2",
+                                                "Q1"))
   )
 
 # Save the 'analytic_data_final' data frame in a single .rds file
