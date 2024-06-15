@@ -29,11 +29,8 @@ if (!dir.exists(missingness_plots_dir)) {
 }
 
 # Load the .rds files
-analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_5_year_followup.rds"))
-# analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final_10_year_followup.rds"))
-
-# Convert 'analytic_data_final' to a data frame
-analytic_data_final <- as.data.frame(analytic_data_final)
+# analytic_data_final <- readRDS(file.path(data_processed_dir, "/5_year_followup/analytic_data_final.rds"))
+analytic_data_final <- readRDS(file.path(data_processed_dir, "/10_year_followup/analytic_data_final.rds"))
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
@@ -65,6 +62,7 @@ all_proposed_covariates <- c("id",
                              "fim_total_at_year_1",
                              "gose_total_at_year_1",
                              "func_score_at_year_1",
+                             "func_score_at_year_1_q5",
                              "mental_health_tx_lifetime_at_injury",
                              "mental_health_tx_past_year_at_injury",
                              "mental_health_tx_hx",
@@ -80,25 +78,22 @@ all_proposed_covariates <- c("id",
                              "depression_level_at_year_1")
 
 # Define select covariates of interest (remove individual function scores and mental health history variable components)
-select_covariates_1 <- c("id",
+select_covariates <- c("id",
                          "event_status",
                          "time_to_event_in_years",
                          "time_to_censorship_in_years",
                          "time_to_expiration_in_years",
                          "age_at_censorship",
                          "age_at_expiration",
-                         "calendar_year_of_injury",
                          "sex",
                          "age_at_injury",
                          "education_level_at_injury",
                          "employment_at_injury",
-                         "marital_status_at_injury",
                          "rehab_payor_primary_type",
                          "cause_of_injury",
-                         "func_score_at_year_1",
+                         "func_score_at_year_1_q5",
                          "mental_health_tx_hx",
                          "psych_hosp_hx",
-                         "problematic_substance_use_at_injury",
                          "problematic_substance_use_at_year_1",
                          "suicide_attempt_hx",
                          "depression_level_at_year_1")
@@ -120,6 +115,7 @@ var_name_mapping <- c(
   fim_total_at_year_1 = "FIM Score at Year 1",
   gose_total_at_year_1 = "GOS-E Score at Year 1",
   func_score_at_year_1 = "Function Factor Score at Year 1",
+  func_score_at_year_1_q5 = "Function Factor Score at Year 1 Quintiles",
   mental_health_tx_lifetime_at_injury = "Lifetime History of Mental Health Treatment at Injury",
   mental_health_tx_past_year_at_injury = "Past-Year History of Mental Health Treatment at Injury",
   mental_health_tx_hx = "History of Mental Health Treatment",
@@ -140,8 +136,8 @@ var_name_mapping <- c(
 analytic_all_proposed_covariates <- analytic_data_final |>
   select(all_of(all_proposed_covariates))
 
-analytic_select_covariates_1 <- analytic_data_final |>
-  select(all_of(select_covariates_1))
+analytic_select_covariates <- analytic_data_final |>
+  select(all_of(select_covariates))
 
 # Define the undesired variables from the data frames to prepare for visualizations
 variables_to_exclude_from_plots <- c("id",
@@ -155,7 +151,7 @@ variables_to_exclude_from_plots <- c("id",
 all_proposed_covariates_for_plots <- analytic_all_proposed_covariates |>
   select(-all_of(variables_to_exclude_from_plots))
          
-select_covariates_1_for_plots <- analytic_select_covariates_1 |>
+select_covariates_for_plots <- analytic_select_covariates |>
   select(-all_of(variables_to_exclude_from_plots))
 ```
 
@@ -268,11 +264,15 @@ as_shadow_upset_custom <- function(data, preferred_labels) {
     }
     rlang::abort(message = glu_st)
   }
-
-  data_shadow <- as.data.frame(is.na(data) * 1)
+  
+  data_shadow <- is.na(data) * 1
   colnames(data_shadow) <- sapply(colnames(data), function(x) preferred_labels[x])
 
-  mutate_if(data_shadow, is.numeric, as.integer)
+  data_shadow <- as.data.frame(data_shadow)
+  data_shadow <- data_shadow %>%
+    mutate(across(where(is.numeric), as.integer))
+  
+  return(data_shadow)
 }
 ```
 
@@ -301,13 +301,11 @@ as_shadow_upset_custom <- function(data, preferred_labels) {
 #' @export
 #' @seealso \code{\link[UpSetR]{upset}} for the underlying function used to create UpSet plots.
 gg_miss_upset_custom <- function(data, preferred_labels, order.by = "freq", set_size.show = TRUE, set_size.numbers_size = 4.5, ...) {
-  data |>
-    as_shadow_upset_custom(preferred_labels = preferred_labels) |>
-    UpSetR::upset(order.by = order.by,
-                  # sets.bar.color = "#263238",
-                  set_size.show = set_size.show,
-                  set_size.numbers_size = set_size.numbers_size,
-                  ...)
+  data_shadow <- as_shadow_upset_custom(data, preferred_labels)
+  UpSetR::upset(data_shadow, order.by = order.by,
+                set_size.show = set_size.show,
+                set_size.numbers_size = set_size.numbers_size,
+                ...)
 }
 ```
 
@@ -330,11 +328,13 @@ prepare_na_counts_df <- function(df) {
 ```{r Prepare the NA Counts for Each Covariate Set}
 # Prepare the NA counts for all proposed covariates
 na_counts_for_all_proposed_covariates <- prepare_na_counts_df(all_proposed_covariates_for_plots)
-na_counts_for_select_covariates_1 <- prepare_na_counts_df(select_covariates_1_for_plots)
+na_counts_for_select_covariates <- prepare_na_counts_df(select_covariates_for_plots)
 
 # Save the NA counts data frames in single .rds files
-saveRDS(na_counts_for_all_proposed_covariates, here(data_processed_dir, "na_counts_for_all_proposed_covariates_5_year_followup.rds"))
-saveRDS(na_counts_for_select_covariates_1, here(data_processed_dir, "na_counts_for_select_covariates_1_5_year_followup.rds"))
+# saveRDS(na_counts_for_all_proposed_covariates, here(data_processed_dir, "/5_year_followup/na_counts_for_all_proposed_covariates.rds"))
+# saveRDS(na_counts_for_select_covariates, here(data_processed_dir, "/5_year_followup/na_counts_for_select_covariates.rds"))
+saveRDS(na_counts_for_all_proposed_covariates, here(data_processed_dir, "/10_year_followup/na_counts_for_all_proposed_covariates.rds"))
+saveRDS(na_counts_for_select_covariates, here(data_processed_dir, "/10_year_followup/na_counts_for_select_covariates.rds"))
 ```
 
 ## Plot the Number of Missing Values
@@ -360,7 +360,10 @@ figure_17_1 <- gg_miss_var(all_proposed_covariates_for_plots) +
     family = "Proxima Nova"
   )
 
-ggsave(here(missingness_plots_dir, "figure_17-1_all_proposed_covariates_missing_value_counts.png"),
+# ggsave(here(missingness_plots_dir, "/5_year_followup/figure_17-1_all_proposed_covariates_missing_value_counts.png"),
+#        figure_17_1, dpi = 300)
+
+ggsave(here(missingness_plots_dir, "/10_year_followup/figure_17-1_all_proposed_covariates_missing_value_counts.png"),
        figure_17_1, dpi = 300)
 ```
 
@@ -370,7 +373,7 @@ ggsave(here(missingness_plots_dir, "figure_17-1_all_proposed_covariates_missing_
 
 ```{r Plot Figure 17-2}
 # Plot the number of missing values across all covariates excluding functional status scores
-figure_17_2 <- gg_miss_var(select_covariates_1_for_plots) +
+figure_17_2 <- gg_miss_var(select_covariates_for_plots) +
   labs(x = "Covariates",
        y = "Number of Missing Values"
   ) +
@@ -379,7 +382,7 @@ figure_17_2 <- gg_miss_var(select_covariates_1_for_plots) +
   theme_classic() +
   customization +
   geom_text(
-    data = na_counts_for_select_covariates_1,
+    data = na_counts_for_select_covariates,
     aes(x = variable, y = n_missing, label = scales::comma(n_missing)), # Position and format labels
     vjust = -0.75,
     hjust = 0.5,
@@ -387,11 +390,14 @@ figure_17_2 <- gg_miss_var(select_covariates_1_for_plots) +
     family = "Proxima Nova"
   )
 
-ggsave(here(missingness_plots_dir, "figure_17-2_select_covariates_1_missing_value_counts.png"),
+# ggsave(here(missingness_plots_dir, "/5_year_followup/figure_17-2_select_covariates_missing_value_counts.png"),
+#        figure_17_2, dpi = 300)
+
+ggsave(here(missingness_plots_dir, "/10_year_followup/figure_17-2_select_covariates_missing_value_counts.png"),
        figure_17_2, dpi = 300)
 ```
 
-![](images/figure_17-2_select_covariates_1_missing_value_counts.png)
+![](images/figure_17-2_select_covariates_missing_value_counts.png)
 
 ## Plot the Patterns and Intersections of Missing Values
 
@@ -400,7 +406,8 @@ ggsave(here(missingness_plots_dir, "figure_17-2_select_covariates_1_missing_valu
 ```{r Plot Figure 18-1}
 # Generate an upset plot of missing values across all proposed covariates
 # Define file path
-file_path <- here(missingness_plots_dir, "figure_18-1_all_proposed_covariates_missing_patterns_plot.png")
+# file_path <- here(missingness_plots_dir, "/5_year_followup/figure_18-1_all_proposed_covariates_missing_patterns_plot.png")
+file_path <- here(missingness_plots_dir, "/10_year_followup/figure_18-1_all_proposed_covariates_missing_patterns_plot.png")
 
 # Open a PNG graphics device with adjusted parameters
 png(file_path, width = 3500, height = 1600, res = 300)
@@ -408,7 +415,7 @@ png(file_path, width = 3500, height = 1600, res = 300)
 # Generate the plot
 gg_miss_upset_custom(all_proposed_covariates_for_plots, 
                      var_name_mapping,
-                     nsets = 8)
+                     nsets = 5)
 
 # Close the graphics device
 dev.off()
@@ -421,18 +428,19 @@ dev.off()
 ```{r Plot Figure 18-2}
 # Generate an upset plot of missing values across all proposed covariates excluding functional variables and constituent mental health variables
 # Define file path
-file_path <- here(missingness_plots_dir, "figure_18-2_select_covariates_1_missing_patterns_plot.png")
+# file_path <- here(missingness_plots_dir, "/5_year_followup/figure_18-2_select_covariates_missing_patterns_plot.png")
+file_path <- here(missingness_plots_dir, "/10_year_followup/figure_18-2_select_covariates_missing_patterns_plot.png")
 
 # Open a PNG graphics device with adjusted parameters
 png(file_path, width = 3500, height = 1600, res = 300)
 
 # Generate the plot
-gg_miss_upset_custom(select_covariates_1_for_plots, 
+gg_miss_upset_custom(select_covariates_for_plots, 
                      var_name_mapping,
-                     nsets = 8)
+                     nsets = 5)
 
 # Close the graphics device
 dev.off()
 ```
 
-![](images/figure_18-2_select_covariates_1_missing_patterns_plot.png){fig-align="center"}
+![](images/figure_18-2_select_covariates_missing_patterns_plot.png){fig-align="center"}
