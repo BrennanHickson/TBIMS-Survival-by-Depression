@@ -286,6 +286,28 @@ merged_data <- merged_data |>
   ungroup()
 ```
 
+```{r Create the Variable Corresponding to the Function Factor Score Quintiles}
+# Calculate quintile cut points
+quintile_breaks <- merged_data |>
+  filter(data_collection_period == 1) |>
+  pull(func_score_at_year_1) |>
+  quantile(probs = seq(0, 1, by = 0.20), na.rm = TRUE)
+
+# Ensure quintile cut points are unique
+quintile_breaks <- unique(quintile_breaks)
+
+merged_data <- merged_data |>
+  # Create and impute quartiles for func_score_at_year_1_q5
+  group_by(id) |>
+  mutate(
+    func_score_at_year_1_q5 = if_else(data_collection_period == 1 & !is.na(func_score_at_year_1),
+                                      cut(func_score_at_year_1, breaks = quintile_breaks, include.lowest = TRUE, labels = FALSE),
+                                      NA_integer_)
+  ) |>
+  fill(func_score_at_year_1_q5, .direction = "downup") |>
+  ungroup()
+```
+
 ```{r Create a Sample Data Frame, include = FALSE}
 # # List of IDs to subset
 # ids_to_select <- c(22, 9345, 10468, 11911, 13806, 15546, 17398)
@@ -1330,28 +1352,6 @@ analytic_data_imputed$psych_hosp_hx = create_psych_hosp_hx_factor(
 
 # Remove unused factor levels from the newly created variable
 analytic_data_imputed$psych_hosp_hx <- droplevels(analytic_data_imputed$psych_hosp_hx)
-```
-
-```{r Create the Variable Corresponding to the Function Factor Score Quintiles}
-# Calculate quintile cut points
-quintile_breaks <- analytic_data_imputed |>
-  filter(data_collection_period == 1) |>
-  pull(func_score_at_year_1) |>
-  quantile(probs = seq(0, 1, by = 0.20), na.rm = TRUE)
-
-# Ensure quintile cut points are unique
-quintile_breaks <- unique(quintile_breaks)
-
-analytic_data_imputed <- analytic_data_imputed |>
-  # Create and impute quartiles for func_score_at_year_1_q5
-  group_by(id) |>
-  mutate(
-    func_score_at_year_1_q5 = if_else(data_collection_period == 1 & !is.na(func_score_at_year_1),
-                                      cut(func_score_at_year_1, breaks = quintile_breaks, include.lowest = TRUE, labels = FALSE),
-                                      NA_integer_)
-  ) |>
-  fill(func_score_at_year_1_q5, .direction = "downup") |>
-  ungroup()
 ```
 
 ```{r Convert the Units of the Time-to-Event Variables from Days to Years Select and Arrange the Columns in the Imputed Analytic Sample Data Frame}
