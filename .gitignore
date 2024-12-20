@@ -1,0 +1,36 @@
+# Global ignores
+.DS_Store
+
+# Personal settings and hidden files to ignore
+.Rapp.history
+.Rdata
+.RData
+.RDataTmp
+.Renviron
+.Rhistory
+.RProfile
+.Rproj.user
+.Ruserdata
+.httr-oauth
+.quarto
+
+# knitr and R Markdown default cache directories
+*_cache/
+/cache/
+
+# Temporary files created by R Markdown
+*.utf8.md
+*.knit.md
+
+# Quarto-recommended ignore files
+inst/doc
+docs
+
+# Ignore all files in the root directory except README.md, .gitignore, and Notebooks/
+/*
+!README.md
+!.gitignore
+!Notebooks/
+
+# Allow all files in the Notebooks directory
+!/Notebooks/*
