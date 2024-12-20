@@ -297,8 +297,6 @@ merged_data <- merged_data |>
   ungroup()
 ```
 
-The `combine_value_labels` function is designed to combine the value labels from two different variables into a single set of labels. This function is particularly useful when dealing with variables that have been coalesced from multiple data sources that need a unified set of value labels. The function takes two arguments, `var` and `var2`, which are the variables for which you want to combine the labels. The function then returns a unified list of de-duplicated labels across these variables.
-
 The `update_labels_with_sjlabelled` function is used to update the value labels of factor variables within a data frame based on their current levels. It's particularly useful as a pre-processing step to ensure that the value labels are consistent with the actual data after they have undergone various transformations. This function takes two arguments: `data`, the data frame to be processed, and `mapping_lists`, a list of mappings that specify how to handle each variable in the dataframe. The function iteratively updates each factor variable's labels to ensure that they align with the data present after various transformations.
 
 ```{r Define a Function to Update Value Labels}
