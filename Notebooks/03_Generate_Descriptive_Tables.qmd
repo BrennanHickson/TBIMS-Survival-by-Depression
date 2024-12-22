@@ -1,0 +1,282 @@
+---
+title: "Generate Descriptive Tables"
+author: "Brennan Hickson"
+format: html
+editor: visual
+---
+
+# Install and Load Libraries
+
+```{r Initial Setup and Library Loading, echo = TRUE}
+# Load the pacman package (install if necessary)
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+
+# Install and load prerequisite libraries
+pacman::p_load(extrafont, gt, gtsummary, here, naniar, scales, tidyverse)
+
+# Create the 'Data/Processed' subdirectory if not already accessible
+data_processed_dir <- here("Data", "Processed")
+if (!dir.exists(data_processed_dir)) {
+  dir.create(data_processed_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Tables' subdirectory if not already accessible
+output_tables_dir <- here("Output", "Tables")
+if (!dir.exists(output_tables_dir)) {
+  dir.create(output_tables_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Plots/Missingness' subdirectory if not already accessible
+missingness_plots_dir <- here("Output", "Plots", "Missingness")
+if (!dir.exists(missingness_plots_dir)) {
+  dir.create(missingness_plots_dir, recursive = TRUE)
+}
+
+# Load the .rds files
+analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final.rds"))
+na_counts_for_all_proposed_covariates <- readRDS(file.path(data_processed_dir, "na_counts_for_all_proposed_covariates.rds"))
+na_counts_for_select_covariates <- readRDS(file.path(data_processed_dir, "na_counts_for_select_covariates.rds"))
+
+# Import fonts from Font Book
+loadfonts(device = "all", quiet = TRUE)
+```
+
+# Define Custom Preferences
+
+```{r Define a Theme for Customizing Plot Aesthetics}
+customization <- theme(
+  title = element_text(family = "Proxima Nova", face = "bold", size = 20),
+  legend.title = element_text(family = "Proxima Nova", face = "bold", size = 10),
+  legend.text = element_text(family = "Proxima Nova", size = 9.5),
+  axis.title.x = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(t = 10)),
+  axis.title.y = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(r = 10)),
+  axis.text = element_text(family = "Proxima Nova", size = 10),
+  text = element_text(family = "Proxima Nova"),
+  legend.position = "top"
+)
+```
+
+# Prepare Covariate Sets for Table 1
+
+```{r Prepare Covariate Sets of Interest for Table 1}
+# Define all covariates of interest
+all_proposed_covariates <- c("id",
+                             "event_status",
+                             "time_to_event_in_years",
+                             "time_to_censorship_in_years",
+                             "time_to_expiration_in_years",
+                             "age_at_censorship",
+                             "age_at_expiration",
+                             "calendar_year_of_injury",
+                             "sex",
+                             "age_at_injury",
+                             "education_level_at_injury",
+                             "employment_at_injury",
+                             "marital_status_at_injury",
+                             "rehab_payor_primary",
+                             "rehab_payor_primary_type",
+                             "cause_of_injury",
+                             "drs_total_at_year_1",
+                             "fim_total_at_year_1",
+                             "gose_total_at_year_1",
+                             "func_score_at_year_1",
+                             "func_score_at_year_1_q5",
+                             "mental_health_tx_lifetime_at_injury",
+                             "mental_health_tx_past_year_at_injury",
+                             "mental_health_tx_hx",
+                             "problematic_substance_use_at_injury", 
+                             "problematic_substance_use_at_year_1",
+                             "suicide_attempt_hx_lifetime_at_injury", 
+                             "suicide_attempt_hx_past_year_at_injury",
+                             "suicide_attempt_hx_past_year_at_year_1",
+                             "suicide_attempt_hx",
+                             "depression_level_at_year_1")
+
+# Define select covariates of interest (remove individual function scores and mental health history variable components)
+select_covariates <- c("id",
+                         "event_status",
+                         "time_to_event_in_years",
+                         "time_to_censorship_in_years",
+                         "time_to_expiration_in_years",
+                         "age_at_censorship",
+                         "age_at_expiration",
+                         "sex",
+                         "age_at_injury",
+                         "education_level_at_injury",
+                         "employment_at_injury",
+                         "rehab_payor_primary_type",
+                         "cause_of_injury",
+                         "func_score_at_year_1_q5",
+                         "mental_health_tx_hx",
+                         "problematic_substance_use_at_year_1",
+                         "suicide_attempt_hx",
+                         "depression_level_at_year_1")
+```
+
+```{r Define the Preferred Variable Labels for the Covariates of Interest}
+# Define the preferred variable labels for all covariates and variables of interest
+var_name_mapping <- list(
+  event_status = "Mortality Events",
+  time_to_event_in_years = "Time to Event (years)",
+  time_to_censorship_in_years = "Time to Censorship (years)",
+  time_to_expiration_in_years = "Time to Expiration (years)",
+  age_at_censorship = "Age at Censorship",
+  age_at_expiration = "Age at Expiration",
+  depression_level_at_year_1 = "Depression Level at Year 1",
+  calendar_year_of_injury = "Calendar Year of Injury",
+  sex = "Sex",
+  age_at_injury = "Age at Injury",
+  education_level_at_injury = "Educational Attainment at Injury",
+  employment_at_injury = "Employment Status at Injury",
+  marital_status_at_injury = "Marital Status at Injury",
+  rehab_payor_primary = "Primary Rehabilitation Payor",
+  rehab_payor_primary_type = "Medicaid Status",
+  cause_of_injury = "Mechanism of Injury",
+  drs_total_at_year_1 = "DRS Score at Year 1",
+  fim_total_at_year_1 = "FIM Score at Year 1",
+  gose_total_at_year_1 = "GOS-E Score at Year 1",
+  func_score_at_year_1 = "Function Factor Score at Year 1",
+  func_score_at_year_1_q5 = "Function Factor Score at Year 1 Quintiles",
+  mental_health_tx_lifetime_at_injury = "Lifetime History of Mental Health Treatment at Injury",
+  mental_health_tx_past_year_at_injury = "Past-Year History of Mental Health Treatment at Injury",
+  mental_health_tx_hx = "History of Mental Health Treatment",
+  problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+  problematic_substance_use_at_year_1 = "Problematic Substance Use at Year 1",
+  suicide_attempt_hx_lifetime_at_injury = "Lifetime History of Suicide Attempt at Injury",
+  suicide_attempt_hx_past_year_at_injury = "Past-Year History of Suicide Attempt at Injury",
+  suicide_attempt_hx_past_year_at_year_1 = "Past-Year History of Suicide Attempt at Year 1",
+  suicide_attempt_hx = "History of Suicide Attempt"
+)
+```
+
+```{r Prepare Table-Specific Data Frames}
+analytic_data_for_tables_all <- analytic_data_final |>
+  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select("id", all_of(all_proposed_covariates)) |>
+  arrange(id)
+
+analytic_data_for_tables_select <- analytic_data_final |>
+  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select("id", all_of(select_covariates)) |>
+  arrange(id)
+```
+
+```{r Create Complete-Case Subsamples}
+# Select the variables to exclude from the complete-case data frame
+variables_to_exclude <- c("time_to_censorship_in_years",
+                          "time_to_expiration_in_years", 
+                          "age_at_censorship",
+                          "age_at_expiration")
+
+# Adjust the dataset to exclude specified variables for evaluation of missingness among model covariates
+variables_for_cc_all <- setdiff(all_proposed_covariates, variables_to_exclude)
+variables_for_cc_select <- setdiff(select_covariates, variables_to_exclude)
+
+# Prepare the complete-case data frames
+analytic_data_for_cc_all <- analytic_data_final |>
+  select(id, all_of(variables_for_cc_all)) |>
+  arrange(id)
+
+analytic_data_for_cc_select <- analytic_data_final |>
+  # mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, "Missing")) |>
+  select(id, all_of(variables_for_cc_select)) |>
+  arrange(id)
+
+# Create a new data frame with only complete cases
+complete_cases_all <- analytic_data_for_cc_all[complete.cases(analytic_data_for_cc_all), ]
+complete_cases_select <- analytic_data_for_cc_select[complete.cases(analytic_data_for_cc_select), ]
+
+# Create a new data frame with only complete cases for tables
+complete_cases_for_tables_all <- complete_cases_all |>
+  left_join(analytic_data_final |>
+              select(id, time_to_censorship_in_years, time_to_expiration_in_years, age_at_censorship, age_at_expiration), by = "id") |>
+  select(names(complete_cases_all)[1:3],  # Retain the first three variables, up to 'time_to_event_in_years'
+         time_to_censorship_in_years,
+         time_to_expiration_in_years,
+         age_at_censorship,
+         age_at_expiration,
+         names(complete_cases_all)[-c(1:3)])  # Add the remaining the variables from 'complete_cases_all', excluding the first three
+
+# Save the complete_cases_all and complete_cases_select data frames in a single .rds file and CSV file
+saveRDS(complete_cases_all, here(data_processed_dir, "complete_cases_all.rds"))
+write.csv(complete_cases_all, file.path(data_processed_dir, "complete_cases_all.csv"), row.names = FALSE)
+saveRDS(complete_cases_select, here(data_processed_dir, "complete_cases_select.rds"))
+write.csv(complete_cases_select, here(data_processed_dir, "complete_cases_select.csv"), row.names = FALSE)
+```
+
+```{r Create Incomplete-Case Subsamples}
+# Create a new data frame with only incomplete cases
+incomplete_cases_all <- analytic_data_for_cc_all[!complete.cases(analytic_data_for_cc_all), ]
+incomplete_cases_select <- analytic_data_for_cc_select[!complete.cases(analytic_data_for_cc_select), ]
+```
+
+```{r Table 1-1: Generate descriptive statistics table for the full analytic sample with all proposed covariates}
+# Handle missing values in depression_level_at_year_1
+analytic_data_for_tables_all <- analytic_data_for_tables_all |>
+  mutate(depression_level_at_year_1 = fct_na_value_to_level(depression_level_at_year_1, level = "Missing"))
+
+# Generate table with descriptive statistics for the final analytic sample
+table_1_1 <- analytic_data_for_tables_all |>
+  select(-"id") |>
+  tbl_summary(
+    by = depression_level_at_year_1,
+    type = list(calendar_year_of_injury ~ "continuous",
+                gose_total_at_year_1 ~ "continuous"),  # Explicitly set calendar year of injury and GOS-E to continuous
+    statistic = list(all_continuous() ~ "{median} ({p25}-{p75})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = list(all_continuous() ~ 2,  # Default for all continuous variables
+                  starts_with("calendar") ~ 0,
+                  starts_with("age") ~ 0,
+                  starts_with("education") ~ 0,
+                  starts_with("drs") ~ 1,
+                  starts_with("fim") ~ 0,
+                  starts_with("gose") ~ 0),
+    label = var_name_mapping
+  ) |>
+  add_overall() |>
+  bold_labels() |>
+  add_p(
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),  # Format p-values with 3 decimal places
+  ) |>
+  bold_p() |>
+  as_gt() |>
+  tab_header("Table 1-1: Sociodemographic, Functional, and Clinical Characteristics of the Full Analytic Sample with All Proposed Covariates by Depression Level at Year 1") |>
+  gtsave(
+    filename = here(output_tables_dir, "table_1-1_full_analytic_sample_with_all_proposed_covariates.png")
+  )
+```
+
+```{r Table 1-2: Generate descriptive statistics table for the complete-case sample with all proposed covariates}
+# Generate table with descriptive statistics for the final analytic sample
+table_1_2 <- complete_cases_for_tables_all |>
+  select(-"id") |>
+  tbl_summary(
+    by = depression_level_at_year_1,
+    type = list(calendar_year_of_injury ~ "continuous",
+                gose_total_at_year_1 ~ "continuous",
+                education_level_at_injury ~ "continuous"),
+    statistic = list(all_continuous() ~ "{median} ({p25}-{p75})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = list(all_continuous() ~ 2,  # Default for all continuous variables
+                  starts_with("calendar") ~ 0,
+                  starts_with("age") ~ 0,
+                  starts_with("education") ~ 0,
+                  starts_with("drs") ~ 1,
+                  starts_with("fim") ~ 0,
+                  starts_with("gose") ~ 0),
+    label = var_name_mapping
+  ) |>
+  add_overall() |>
+  bold_labels() |>
+  add_p(
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),  # Format p-values with 3 decimal places
+  ) |>
+  bold_p() |>
+  as_gt() |>
+  tab_header("Table 1-2: Sociodemographic, Functional, and Clinical Characteristics of the Complete-Case Sample with All Proposed Covariates by Depression Level at Year 1") |>
+  gtsave(
+    filename = here(output_tables_dir, "table_1-2_complete_case_sample_with_all_proposed_covariates.png")
+  )
+```
