@@ -693,6 +693,33 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-3_age_distribution_by_
        gg.age_distribution_by_depression, dpi = 300)
 ```
 
+```{r Plot Figure 2-4 (Final Analytic Sample)}
+# Create the age distribution by depression plot
+figure_2_4 <- ggplot(analytic_data_final,
+                                            aes(
+                                              x = age_at_expiration, 
+                                              y = depression_level_at_year_1,
+                                              fill = depression_level_at_year_1,
+                                              color = depression_level_at_year_1)) +
+  geom_density_ridges(linetype = 1,
+                      linewidth = 0.75) +
+  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
+  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
+  labs(x = "Age at Expiration (years)",
+       y = "Distribution Density",
+       fill = "Depression Level") +
+  scale_x_continuous(breaks = seq(15, 100, by = 10)) +
+  theme_ridges() +
+  customization 
+  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
+        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
+        plot.background = element_rect(fill = "#FFFFFF", color = NA),
+        legend.position = "right")
+
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-4_age_at_expiration_distribution_by_depression_final_analytic_sample.png"),
+       figure_2_4, dpi = 300, bg = "white")
+```
+
 ```{r Plot Figure 2-4 (Complete-Case Sample)}
 # Append 'age_at_expiration' to the complete-case data frame
 complete_cases_all <- complete_cases_all |>
@@ -703,11 +730,11 @@ complete_cases_all <- complete_cases_all |>
 
 # Create the age at expiration distribution by depression plot
 figure_2_4_2 <- ggplot(complete_cases_all,
-                                            aes(
-                                              x = age_at_injury, 
-                                              y = depression_level_at_year_1,
-                                              fill = depression_level_at_year_1,
-                                              color = depression_level_at_year_1)) +
+                       aes(
+                         x = age_at_expiration, 
+                         y = depression_level_at_year_1,
+                         fill = depression_level_at_year_1,
+                         color = depression_level_at_year_1)) +
   geom_density_ridges(linetype = 1,
                       linewidth = 0.75) +
   scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
