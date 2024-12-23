@@ -989,6 +989,12 @@ analytic_data_imputed <- analytic_data_imputed |>
     depression_level_at_year_1
     ) |>
   arrange(id, data_collection_period)
+
+# Save the 'analytic_data_imputed' data frame in a single .rds file
+saveRDS(analytic_data_imputed, here(data_processed_dir, "analytic_data_imputed.rds"))
+
+# Save the 'analytic_data_imputed' data frame as a CSV file in the 'Data/Processed' subdirectory
+write.csv(analytic_data_imputed, file.path(data_processed_dir, "analytic_data_imputed.csv"), row.names = FALSE)
 ```
 
 ```{r Retain Only the Last Valid Observation Per Participant}
@@ -1082,13 +1088,7 @@ analytic_data_final <- analytic_data_final |>
     suicide_attempt_hx = factor(suicide_attempt_hx, 
                                 levels = c("Denied any history of suicide attempt", 
                                            "Suicide attempt history prior to injury", 
-                                           "Suicide attempt in the first year post-injury")),
-    func_score_at_year_1_q5 = factor(func_score_at_year_1_q5,
-                                     levels = c("Q5",
-                                                "Q4",
-                                                "Q3",
-                                                "Q2",
-                                                "Q1"))
+                                           "Suicide attempt in the first year post-injury"))
   )
 
 # Save the 'analytic_data_final' data frame in a single .rds file
