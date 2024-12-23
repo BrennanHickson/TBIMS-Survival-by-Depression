@@ -41,6 +41,9 @@ na_counts_for_select_covariates <- readRDS(file.path(data_processed_dir, "na_cou
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
+
+# Set a random seed for reproducibility
+set.seed(42)
 ```
 
 # Define Custom Preferences
