@@ -458,19 +458,8 @@ merged_data <- merged_data |>
                                                           No = "0",
                                                           Yes = "1"
                                                           ) |>
-      fct_relevel("No", "Yes"),
+      fct_relevel("No", "Yes")
     
-    # Convert 'func_score_at_year_1_q5' to a factor
-    func_score_at_year_1_q5 = as.factor(func_score_at_year_1_q5),
-    # Set 'Q5' as the reference group for the function factor score at year 1 quintiles covariate
-    func_score_at_year_1_q5 = fct_recode(func_score_at_year_1_q5,
-                                         Q1 = "1",
-                                         Q2 = "2",
-                                         Q3 = "3",
-                                         Q4 = "4",
-                                         Q5 = "5"
-                                         ) |>
-      fct_relevel("Q5", "Q4", "Q3", "Q2", "Q1")
   ) |>
   
   droplevels()  # Drop unused factor levels
