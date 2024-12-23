@@ -12,7 +12,7 @@ if (!requireNamespace("pacman", quietly = TRUE)) {
 }
 
 # Install and load prerequisite libraries
-pacman::p_load(haven, here, lubridate, sjlabelled, labelled, tidyverse)
+pacman::p_load(haven, here, lubridate, labelled, sjlabelled, tidyverse)
 
 # Create the 'logs' subdirectory if not already accessible
 log_dir <- here("Logs")
