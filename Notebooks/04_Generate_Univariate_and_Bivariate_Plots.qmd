@@ -33,6 +33,9 @@ complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all.
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
+
+# Set a random seed for reproducibility
+set.seed(42)
 ```
 
 ```{r Create Custom Theme}
@@ -63,9 +66,9 @@ summarized_data <- analytic_data_imputed |>
       c(depression_level_at_year_1, employment_at_injury, marital_status_at_injury,
         rehab_payor_primary, rehab_payor_primary_type, cause_of_injury,
         drs_total_at_year_1, fim_total_at_year_1, gose_total_at_year_1,
-        mental_health_tx_hx, problematic_substance_use_at_injury, 
-        problematic_substance_use_at_year_1, suicide_attempt_hx_lifetime_at_injury, 
-        suicide_attempt_hx_past_year_at_injury, 
+        mental_health_tx_hx, psych_hosp_hx,
+        problematic_substance_use_at_injury, problematic_substance_use_at_year_1,
+        suicide_attempt_hx_lifetime_at_injury,  suicide_attempt_hx_past_year_at_injury, 
         suicide_attempt_hx_past_year_at_year_1, suicide_attempt_hx),
       ~ first_non_na(.x)
     ),
@@ -578,7 +581,7 @@ gg.age_distribution_by_vital_status <- ggplot(age_by_vital_status_plot_data,
                                                   fill = event_status,
                                                   color = event_status,
                                                   group = event_status)) +
-  geom_density(alpha = 0.8, size = 0.75) +
+  geom_density(alpha = 0.8, linewidth = 0.75) +
   scale_fill_manual(values = c("0" = "#CFD8DC", "1" = "#37474F"),
                     labels = c("0" = "Censored", "1" = "Expired"),
                     name = "Vital Status") +
@@ -615,7 +618,7 @@ gg.age_distribution_by_vital_status <- ggplot(age_by_vital_status_plot_data,
                                                   fill = event_status,
                                                   color = event_status,
                                                   group = event_status)) +
-  geom_density(alpha = 0.8, size = 0.75) +
+  geom_density(alpha = 0.8, linewidth = 0.75) +
   scale_fill_manual(values = c("0" = "#CFD8DC", "1" = "#37474F"),
                     labels = c("0" = "Censored", "1" = "Expired"),
                     name = "Vital Status") +
@@ -2359,9 +2362,211 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-4_mental_health_tx_hx
        gg.mental_health_tx_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 13-1 and 13-2: Counts and Percentages of Problematic Substance Use at Injury by Year 1 Depression Level
+### Figures 13-1 and 13-2: Counts and Percentages of History of Psychiatric Hospitalization by Year 1 Depression Level
 
 ```{r Plot Figure 13-1 (Final Analytic Sample)}
+# Relevel the factor variable
+analytic_data_final <- analytic_data_final |>
+  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
+                                levels = c("Denied any history of psychiatric hospitalization",
+                                           "Psychiatric hospital admission prior to year preceding index injury only",
+                                           "Psychiatric hospital admission within year preceding index injury")))
+
+# Filter out NA values in 'mental_health_tx_hx' to display counts
+psych_hosp_hx_by_depression_data <- analytic_data_final |> 
+  drop_na(psych_hosp_hx)
+
+# Calculate the counts for each depression level group
+count_data_psych_hosp_hx <- psych_hosp_hx_by_depression_data |>
+  count(depression_level_at_year_1, psych_hosp_hx)
+
+# Create the counts plot
+gg.psych_hosp_hx_by_depression <- ggplot(psych_hosp_hx_by_depression_data,
+                                         aes(x = depression_level_at_year_1,
+                                             fill = psych_hosp_hx)) +
+  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
+  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
+                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
+                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
+  geom_text(data = count_data_psych_hosp_hx,
+            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
+            position = position_dodge(width = 0.9), vjust = -1.75,
+            family = "Proxima Nova",
+            fontface = "bold",
+            size = 2.75,
+            color = c("#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011")) +
+  labs(x = "Depression Level at Year 1", y = "Count", fill = "History of Psychiatric Hospitalization") +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, by = 200)) +
+  theme_classic() +
+  customization +
+  theme(
+    legend.direction = "vertical",
+    legend.background = element_rect(fill = "transparent"),
+    legend.text = element_text(size = 8)
+  )
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-1_psych_hosp_hx_by_depression_final_analytic_sample.png"),
+       gg.psych_hosp_hx_by_depression, bg = "#FFFFFF", dpi = 300)
+```
+
+```{r Plot Figure 13-1 (Complete-Case Sample)}
+# Relevel the factor variable
+complete_cases_all <- complete_cases_all |>
+  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
+                                levels = c("Denied any history of psychiatric hospitalization",
+                                           "Psychiatric hospital admission prior to year preceding index injury only",
+                                           "Psychiatric hospital admission within year preceding index injury")))
+
+# Filter out NA values in 'mental_health_tx_hx' to display counts
+psych_hosp_hx_by_depression_data <- complete_cases_all |> 
+  drop_na(psych_hosp_hx)
+
+# Calculate the counts for each depression level group
+count_data_psych_hosp_hx <- psych_hosp_hx_by_depression_data |>
+  count(depression_level_at_year_1, psych_hosp_hx)
+
+# Create the counts plot
+gg.psych_hosp_hx_by_depression <- ggplot(psych_hosp_hx_by_depression_data,
+                                         aes(x = depression_level_at_year_1,
+                                             fill = psych_hosp_hx)) +
+  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
+  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
+                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
+                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
+  geom_text(data = count_data_psych_hosp_hx,
+            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
+            position = position_dodge(width = 0.9), vjust = -1.75,
+            family = "Proxima Nova",
+            fontface = "bold",
+            size = 2.75,
+            color = c("#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011")) +
+  labs(x = "Depression Level at Year 1", y = "Count", fill = "History of Psychiatric Hospitalization") +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, by = 200)) +
+  theme_classic() +
+  customization +
+  theme(
+    legend.direction = "vertical",
+    legend.background = element_rect(fill = "transparent"),
+    legend.text = element_text(size = 8)
+  )
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-1_psych_hosp_hx_by_depression_complete_case_sample.png"),
+       gg.psych_hosp_hx_by_depression, bg = "#FFFFFF", dpi = 300)
+```
+
+```{r Plot Figure 13-2 (Final Analytic Sample)}
+# Relevel the factor variable
+analytic_data_final <- analytic_data_final |>
+  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
+                                levels = c("Denied any history of psychiatric hospitalization",
+                                           "Psychiatric hospital admission prior to year preceding index injury only",
+                                           "Psychiatric hospital admission within year preceding index injury")))
+
+# Create the percentages plot
+# Filter out NA values in 'mental_health_tx_hx' and calculate percentages
+psych_hosp_hx_by_depression_pct_data <- analytic_data_final |> 
+  drop_na(psych_hosp_hx, depression_level_at_year_1) |>
+  count(depression_level_at_year_1, psych_hosp_hx) |> 
+  group_by(depression_level_at_year_1) |>
+  mutate(pct = n / sum(n) * 100)
+
+# Create the mechanism of injury by depression level percentages plot
+gg.psych_hosp_hx_by_depression_pct <- ggplot(psych_hosp_hx_by_depression_pct_data,
+                                             aes(x = depression_level_at_year_1,
+                                                 y = pct,
+                                                 fill = psych_hosp_hx)) +
+  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
+  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
+                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
+                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
+  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
+            position = position_dodge(width = 0.9), vjust = -2.0,
+            family = "Proxima Nova",
+            fontface = "bold",
+            size = 2.75,
+            color = c("#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011")) +
+  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "History of Psychiatric Hospitalization") +
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 10%
+  theme_classic() +
+  customization +
+  theme(
+    legend.direction = "vertical",
+    legend.background = element_rect(fill = "transparent"),
+    legend.text = element_text(size = 8)
+  )
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-2_psych_hosp_hx_by_depression_pct_final_analytic_sample.png"), 
+       gg.psych_hosp_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
+```
+
+```{r Plot Figure 13-2 (Complete-Case Sample)}
+# Relevel the factor variable
+complete_cases_all <- complete_cases_all |>
+  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
+                                levels = c("Denied any history of psychiatric hospitalization",
+                                           "Psychiatric hospital admission prior to year preceding index injury only",
+                                           "Psychiatric hospital admission within year preceding index injury")))
+
+# Create the percentages plot
+# Filter out NA values in 'mental_health_tx_hx' and calculate percentages
+psych_hosp_hx_by_depression_pct_data <- complete_cases_all |> 
+  drop_na(psych_hosp_hx, depression_level_at_year_1) |>
+  count(depression_level_at_year_1, psych_hosp_hx) |> 
+  group_by(depression_level_at_year_1) |>
+  mutate(pct = n / sum(n) * 100)
+
+# Add a new column to determine the vertical position of the text based on 'pct'
+psych_hosp_hx_by_depression_pct_data <- psych_hosp_hx_by_depression_pct_data |>
+  mutate(text_y_position = if_else(pct <= 5, pct + 1, pct / 2),  # Adjust the position above the bar slightly for <= 5%
+         text_vjust = if_else(pct <= 5, -1.0, 0))  # Use different vjust values based on the pct
+
+# Create the mechanism of injury by depression level percentages plot
+gg.psych_hosp_hx_by_depression_pct <- ggplot(psych_hosp_hx_by_depression_pct_data,
+                                             aes(x = depression_level_at_year_1,
+                                                 y = pct,
+                                                 fill = psych_hosp_hx)) +
+  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
+  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
+                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
+                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
+  geom_text(aes(label = sprintf("%.1f%%", pct), y = text_y_position, vjust = text_vjust),  # Center text in the middle of each bar and format with one decimal place
+            position = position_dodge(width = 0.9),
+            family = "Proxima Nova",
+            fontface = "bold",
+            size = 2.75,
+            color = c("#0C1011", "#0C1011", "#0C1011",
+                      "#0C1011", "#FFFFFF", "#0C1011",
+                      "#0C1011", "#0C1011", "#0C1011")) +
+  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "History of Psychiatric Hospitalization") +
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 10%
+  theme_classic() +
+  customization +
+  theme(
+    legend.direction = "vertical",
+    legend.background = element_rect(fill = "transparent"),
+    legend.text = element_text(size = 8)
+  )
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-2_psych_hosp_hx_by_depression_pct_complete_case_sample.png"), 
+       gg.psych_hosp_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
+```
+
+### Figures 14-1 and 14-2: Counts and Percentages of Problematic Substance Use at Injury by Year 1 Depression Level
+
+```{r Plot Figure 14-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
@@ -2403,11 +2608,11 @@ gg.problematic_substance_use_at_injury_by_depression <- ggplot(problematic_subst
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-1_problematic_substance_use_at_injury_by_depression_final_analytic_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-1_problematic_substance_use_at_injury_by_depression_final_analytic_sample.png"),
        gg.problematic_substance_use_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 13-1 (Complete-Case Sample)}
+```{r Plot Figure 14-1 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
@@ -2448,11 +2653,11 @@ gg.problematic_substance_use_at_injury_by_depression <- ggplot(problematic_subst
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-1_problematic_substance_use_at_injury_by_depression_complete_case_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-1_problematic_substance_use_at_injury_by_depression_complete_case_sample.png"),
        gg.problematic_substance_use_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 13-2 (Final Analytic Sample)}
+```{r Plot Figure 14-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
@@ -2494,11 +2699,11 @@ gg.problematic_substance_use_at_injury_by_depression_pct <- ggplot(problematic_s
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-2_problematic_substance_use_at_injury_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-2_problematic_substance_use_at_injury_by_depression_pct_final_analytic_sample.png"), 
        gg.problematic_substance_use_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 13-2 (Complete-Case Sample)}
+```{r Plot Figure 14-2 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
@@ -2540,13 +2745,13 @@ gg.problematic_substance_use_at_injury_by_depression_pct <- ggplot(problematic_s
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-2_problematic_substance_use_at_injury_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-2_problematic_substance_use_at_injury_by_depression_pct_complete_case_sample.png"), 
        gg.problematic_substance_use_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 14-1 and 14-2: Counts and Percentages of Problematic Substance Use at Year 1 by Year 1 Depression Level
+### Figures 15-1 and 15-2: Counts and Percentages of Problematic Substance Use at Year 1 by Year 1 Depression Level
 
-```{r Plot Figure 14-1 (Final Analytic Sample)}
+```{r Plot Figure 15-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
@@ -2589,11 +2794,11 @@ gg.problematic_substance_use_at_year_1_by_depression <- ggplot(problematic_subst
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-1_problematic_substance_use_at_year_1_by_depression_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-1_problematic_substance_use_at_year_1_by_depression_final_analytic_sample.png"), 
        gg.problematic_substance_use_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 14-1 (Complete-Case Sample)}
+```{r Plot Figure 15-1 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
@@ -2635,11 +2840,11 @@ gg.problematic_substance_use_at_year_1_by_depression <- ggplot(problematic_subst
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-1_problematic_substance_use_at_year_1_by_depression_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-1_problematic_substance_use_at_year_1_by_depression_complete_case_sample.png"), 
        gg.problematic_substance_use_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 14-2 (Final Analytic Sample)}
+```{r Plot Figure 15-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
@@ -2681,11 +2886,11 @@ gg.problematic_substance_use_at_year_1_by_depression_pct <- ggplot(problematic_s
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-2_problematic_substance_use_at_year_1_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-2_problematic_substance_use_at_year_1_by_depression_pct_final_analytic_sample.png"), 
        gg.problematic_substance_use_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 14-2 (Complete-Case Sample)}
+```{r Plot Figure 15-2 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
@@ -2727,13 +2932,13 @@ gg.problematic_substance_use_at_year_1_by_depression_pct <- ggplot(problematic_s
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-2_problematic_substance_use_at_year_1_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-2_problematic_substance_use_at_year_1_by_depression_pct_complete_case_sample.png"), 
        gg.problematic_substance_use_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 15-1 and 15-2: Counts and Percentages of Lifetime Suicide Attempt at Injury and History of Suicide Attempt by Year 1 Depression Level
+### Figures 16-1 and 16-2: Counts and Percentages of Lifetime Suicide Attempt at Injury and History of Suicide Attempt by Year 1 Depression Level
 
-```{r Plot Figure 15-1 (Final Analytic Sample)}
+```{r Plot Figure 16-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
@@ -2778,11 +2983,11 @@ gg.suicide_attempt_hx_lifetime_at_injury_by_depression <- ggplot(suicide_attempt
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-1_suicide_attempt_hx_lifetime_at_injury_by_depression_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-1_suicide_attempt_hx_lifetime_at_injury_by_depression_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_lifetime_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 15-1 (Complete-Case Sample)}
+```{r Plot Figure 16-1 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
@@ -2826,11 +3031,11 @@ gg.suicide_attempt_hx_lifetime_at_injury_by_depression <- ggplot(suicide_attempt
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-1_suicide_attempt_hx_lifetime_at_injury_by_depression_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-1_suicide_attempt_hx_lifetime_at_injury_by_depression_complete_case_sample.png"), 
        gg.suicide_attempt_hx_lifetime_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 15-2 (Final Analytic Sample)}
+```{r Plot Figure 16-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
@@ -2873,11 +3078,11 @@ gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct <- ggplot(suicide_att
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-2_suicide_attempt_hx_lifetime_at_injury_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-2_suicide_attempt_hx_lifetime_at_injury_by_depression_pct_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 15-2 (Complete-Case Sample)}
+```{r Plot Figure 16-2 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
@@ -2920,11 +3125,11 @@ gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct <- ggplot(suicide_att
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-2_suicide_attempt_hx_lifetime_at_injury_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-2_suicide_attempt_hx_lifetime_at_injury_by_depression_pct_complete_case_sample.png"), 
        gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 15-3 (Final Analytic Sample)}
+```{r Plot Figure 16-3 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
@@ -2969,11 +3174,11 @@ gg.suicide_attempt_hx_by_depression <- ggplot(suicide_attempt_hx_by_depression_d
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-3_suicide_attempt_hx_by_depression_final_analytic_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-3_suicide_attempt_hx_by_depression_final_analytic_sample.png"),
        gg.suicide_attempt_hx_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 15-3 (Complete-Case Sample)}
+```{r Plot Figure 16-3 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
@@ -3017,11 +3222,11 @@ gg.suicide_attempt_hx_by_depression <- ggplot(suicide_attempt_hx_by_depression_d
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-3_suicide_attempt_hx_by_depression_complete_case_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-3_suicide_attempt_hx_by_depression_complete_case_sample.png"),
        gg.suicide_attempt_hx_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 15-4 (Final Analytic Sample)}
+```{r Plot Figure 16-4 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
@@ -3067,11 +3272,11 @@ gg.suicide_attempt_hx_by_depression_pct <- ggplot(suicide_attempt_hx_by_depressi
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-4_suicide_attempt_hx_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-4_suicide_attempt_hx_by_depression_pct_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 15-4 (Complete-Case Sample)}
+```{r Plot Figure 16-4 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
@@ -3117,13 +3322,13 @@ gg.suicide_attempt_hx_by_depression_pct <- ggplot(suicide_attempt_hx_by_depressi
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-4_suicide_attempt_hx_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-4_suicide_attempt_hx_by_depression_pct_complete_case_sample.png"), 
        gg.suicide_attempt_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 16-1 and 16-2: Counts and Percentages of Past-Year Suicide Attempt at Injury by Year 1 Depression Level
+### Figures 17-1 and 17-2: Counts and Percentages of Past-Year Suicide Attempt at Injury by Year 1 Depression Level
 
-```{r Plot 16-1 (Final Analytic Sample)}
+```{r Plot 17-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
@@ -3166,11 +3371,11 @@ gg.suicide_attempt_hx_past_year_at_injury_by_depression <- ggplot(suicide_attemp
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-1_suicide_attempt_hx_past_year_at_injury_by_depression_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-1_suicide_attempt_hx_past_year_at_injury_by_depression_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot 16-1 (Complete-Case Sample)}
+```{r Plot 17-1 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
@@ -3212,11 +3417,11 @@ gg.suicide_attempt_hx_past_year_at_injury_by_depression <- ggplot(suicide_attemp
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-1_suicide_attempt_hx_past_year_at_injury_by_depression_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-1_suicide_attempt_hx_past_year_at_injury_by_depression_complete_case_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot 16-2 (Final Analytic Sample)}
+```{r Plot 17-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
@@ -3258,11 +3463,11 @@ gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct <- ggplot(suicide_at
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-2_suicide_attempt_hx_past_year_at_injury_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-2_suicide_attempt_hx_past_year_at_injury_by_depression_pct_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot 16-2 (Complete-Case Sample)}
+```{r Plot 17-2 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
@@ -3304,13 +3509,13 @@ gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct <- ggplot(suicide_at
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-2_suicide_attempt_hx_past_year_at_injury_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-2_suicide_attempt_hx_past_year_at_injury_by_depression_pct_complete_case_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 17-1 and 17-2: Counts and Percentages of Past-Year Suicide Attempt at Year 1 by Year 1 Depression Level
+### Figures 18-1 and 18-2: Counts and Percentages of Past-Year Suicide Attempt at Year 1 by Year 1 Depression Level
 
-```{r Plot 17-1 (Final Analytic Sample)}
+```{r Plot 18-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
@@ -3354,11 +3559,11 @@ gg.suicide_attempt_hx_past_year_at_year_1_by_depression <- ggplot(suicide_attemp
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-1_suicide_attempt_hx_past_year_at_year_1_by_depression_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-1_suicide_attempt_hx_past_year_at_year_1_by_depression_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot 17-1 (Complete-Case Sample)}
+```{r Plot 18-1 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
@@ -3401,11 +3606,11 @@ gg.suicide_attempt_hx_past_year_at_year_1_by_depression <- ggplot(suicide_attemp
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-1_suicide_attempt_hx_past_year_at_year_1_by_depression_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-1_suicide_attempt_hx_past_year_at_year_1_by_depression_complete_case_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot 17-2 (Final Analytic Sample)}
+```{r Plot 18-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
@@ -3448,11 +3653,11 @@ gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct <- ggplot(suicide_at
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-2_suicide_attempt_hx_past_year_at_year_1_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-2_suicide_attempt_hx_past_year_at_year_1_by_depression_pct_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot 17-2 (Complete-Case Sample)}
+```{r Plot 18-2 (Complete-Case Sample)}
 # Relevel the factor variable
 complete_cases_all <- complete_cases_all |>
   mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
@@ -3495,6 +3700,6 @@ gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct <- ggplot(suicide_at
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-2_suicide_attempt_hx_past_year_at_year_1_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-2_suicide_attempt_hx_past_year_at_year_1_by_depression_pct_complete_case_sample.png"), 
        gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
