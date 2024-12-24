@@ -35,9 +35,6 @@ if (!dir.exists(data_processed_dir)) {
 # Define the study period start and end dates
 study_entry_period_start_date <- as.Date("2006-10-01")
 study_entry_period_end_date <- as.Date("2012-10-01")
-
-# Set a random seed for reproducibility
-set.seed(42)
 ```
 
 ```{r Define a Function to Import the Data}
