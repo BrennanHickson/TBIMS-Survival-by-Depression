@@ -1,0 +1,914 @@
+---
+title: "Survival Analysis"
+author: "Brennan Hickson"
+format: html
+editor: visual
+---
+
+# Install and Load Libraries
+
+```{r Initial Setup and Library Loading, echo = TRUE}
+# Load the pacman package (install if necessary)
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+
+# Install and load prerequisite libraries
+pacman::p_load(autoReg, broom, corrplot, extrafont, forestplot, ggsurvfit, grid, gridExtra, gt, gtsummary, here, patchwork, scales, showtext, survival, survminer, tidyverse)
+
+# Create the 'Data/Processed' subdirectory if not already accessible
+data_processed_dir <- here("Data", "Processed")
+if (!dir.exists(data_processed_dir)) {
+  dir.create(data_processed_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Tables' subdirectory if not already available
+tables_dir <- here("Output", "Tables")
+if (!dir.exists(tables_dir)) {
+  dir.create(tables_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Tables/Schoenfeld_Residuals' subdirectory if not already available
+schoenfeld_dir <- here(tables_dir, "Schoenfeld_Residuals")
+if (!dir.exists(schoenfeld_dir)) {
+  dir.create(schoenfeld_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Plots/Missingness' subdirectory if not already available
+missingness_plots_dir <- here("Output", "Plots", "Missingness")
+if (!dir.exists(missingness_plots_dir)) {
+  dir.create(missingness_plots_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Plots/Schoenfeld_Residuals' subdirectory if not already available
+schoenfeld_residuals_plots_dir <- here("Output", "Plots", "Schoenfeld_Residuals")
+if (!dir.exists(schoenfeld_residuals_plots_dir)) {
+  dir.create(schoenfeld_residuals_plots_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Plots/Martingale_Residuals' subdirectory if not already available
+martingale_residuals_plots_dir <- here("Output", "Plots", "Martingale_Residuals")
+if (!dir.exists(martingale_residuals_plots_dir)) {
+  dir.create(martingale_residuals_plots_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Plots/Multicollinearity' subdirectory if not already available
+multicollinearity_plots_dir <- here("Output", "Plots", "Multicollinearity")
+if (!dir.exists(multicollinearity_plots_dir)) {
+  dir.create(multicollinearity_plots_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Plots/Survival_Curves' subdirectory if not already available
+survival_curves_plots_dir <- here("Output", "Plots", "Survival_Curves")
+if (!dir.exists(survival_curves_plots_dir)) {
+  dir.create(survival_curves_plots_dir, recursive = TRUE)
+}
+
+# Create the 'Output/Plots/Forest_Plots' subdirectory if not already available
+forest_plots_dir <- here("Output", "Plots", "Forest_plots")
+if (!dir.exists(forest_plots_dir)) {
+  dir.create(forest_plots_dir, recursive = TRUE)
+}
+
+# Load the .rds files
+complete_cases_select <- readRDS(file.path(data_processed_dir, "complete_cases_select_final.rds"))
+
+# Import fonts from Font Book
+loadfonts(device = "all", quiet = TRUE)
+```
+
+# Define the Covariate Groups for Nested Models
+
+```{r Define the covariate groups for nested models}
+# Define the covariate groups
+select_model_1_vars <- "depression_level_at_year_1"
+
+select_model_2_vars <- c("age_at_injury",
+                         "sex",
+                         "education_level_at_injury",
+                         "rehab_payor_primary_type")
+
+select_model_3_vars <- c("mental_health_tx_hx",
+                         "suicide_attempt_hx",
+                         "problematic_substance_use_at_injury")
+
+select_model_4_vars <- c("func_score_at_year_1_q5")
+
+# Combine the covariate groups in the desired order
+all_select_covariates <- c(select_model_1_vars,
+                           select_model_2_vars,
+                           select_model_3_vars,
+                           select_model_4_vars)
+```
+
+```{r Define the Preferred Variable Labels for the Covariates of Interest}
+# Define the preferred variable labels for all covariates
+var_name_mapping <- list(
+  depression_level_at_year_1 = "Depression Level at Year 1",
+  age_at_injury = "Age at Injury",
+  sex = "Sex",
+  education_level_at_injury = "Educational Attainment at Injury",
+  rehab_payor_primary_type = "Medicaid Status",
+  mental_health_tx_hx = "History of Mental Health Treatment",
+  suicide_attempt_hx = "History of Suicide Attempt",
+  problematic_substance_use_at_injury = "Problematic Substance Use at Injury",
+  func_score_at_year_1_q5 = "Function Factor Score at Year 1 Quintiles",
+  GLOBAL = "GLOBAL"
+)
+```
+
+# Define Aesthetic Preferences
+
+```{r Define Themes for Customizing Plot Aesthetics}
+customization <- theme(
+  title = element_text(family = "Proxima Nova", face = "bold", size = 10),
+  legend.text = element_text(family = "Proxima Nova", size = 9.5),
+  axis.title.x = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(t = 10)),
+  axis.title.y = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(r = 10)),
+  axis.text = element_text(family = "Proxima Nova", size = 10),
+  text = element_text(family = "Proxima Nova"),
+  legend.position = "top"
+)
+
+customization_martingale <- theme(
+  title = element_text(family = "Proxima Nova", face = "bold", size = 15),
+  legend.text = element_text(family = "Proxima Nova", size = 10),
+  axis.title.x = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(t = 10)),
+  axis.title.y = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(r = 10)),
+  axis.text = element_text(family = "Proxima Nova", size = 11),
+  text = element_text(family = "Proxima Nova"),
+  legend.position = "top"
+)
+
+customization_survival_curves <- theme(
+  title = element_text(family = "Proxima Nova", face = "bold", size = 10),
+  legend.text = element_text(family = "Proxima Nova", size = 9.5),
+  axis.title.x = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(t = 10)),
+  axis.title.y = element_text(family = "Proxima Nova", face = "bold", size = 12, margin = margin(r = 10)),
+  axis.text = element_text(family = "Proxima Nova", size = 10),
+  text = element_text(family = "Proxima Nova"),
+)
+```
+
+# Cox Proportional Hazards Regression
+
+The `coxph` function from the `survival` package is used to fit the Cox proportional hazards regression model. The basic syntax is `coxph(Surv(time, event) ~ covariates, data = dataset)`, where:
+
+-   **`Surv(time, event)`** is a `Surv` object, where `time` represents the time to either the event or censorship, and `event` is a binary variable indicating whether the event (e.g., death) occurred (1) or was censored (0).
+-   **`covariates`** is a formula that specifies the covariates (i.e., predictor variables) to be included in the model.
+-   **`data`** specifies the dataset that contains the covariates of interest.
+
+## Univariate Cox Regression Modeling
+
+Univariate Cox regression modeling is a statistical technique used in survival analysis to assess the relationship between the survival time of participants and a single predictor variable. The primary purpose of univariate Cox regression is to determine whether a single variable is associated with the hazard of an event (e.g., death, recurrence of disease) without controlling for the effects of other variables.
+
+Univariate models might need to be examined for the following reasons:
+
+1.  **Identification of Significant Predictors:** Univariate Cox regression helps to identify potential predictors that may have a significant impact on survival outcomes. By examining each predictor individually, researchers can identify which variables warrant further investigation in multivariable models.
+2.  **Screening Variables:** Univariate analysis can be used to screen a large number of potential predictors efficiently. Variables that demonstrate significant associations with survival outcomes in univariate analysis can be prioritized for inclusion in multivariable models.
+3.  **Understanding Variable Effects:** Univariate Cox regression allows researchers to understand the direction and magnitude of the effect of each predictor on survival outcomes in isolation from other variables.
+
+Performing univariate Cox regression in R can be accomplished using the `coxph()` function from the `survival` package. The `univariate_cox_models` function below fits the univariate Cox regression model for each variable specified in a list of variables and prints the summary of each univariate model (with results rounded to two digits) by calling the `round_cox_summary` function.
+
+```{r Define a Helper Function to Round and Format the Cox Proportional Hazards Summary Results}
+# Function to round and format the Cox model summary
+round_cox_summary <- function(cox_model) {
+  # Get the summary of the Cox model
+  summary_cox <- summary(cox_model)
+  
+  # Round the numeric values in the summary to 2 decimal places
+  summary_cox$coefficients <- round(summary_cox$coefficients, 2)
+  if (!is.null(summary_cox$conf.int)) {
+    summary_cox$conf.int <- round(summary_cox$conf.int, 2)
+  }
+  summary_cox$logtest <- round(summary_cox$logtest, 2)
+  summary_cox$waldtest <- round(summary_cox$waldtest, 2)
+  summary_cox$sctest <- round(summary_cox$sctest, 2)
+  if (!is.null(summary_cox$rsq)) {
+    summary_cox$rsq <- round(summary_cox$rsq, 2)
+  }
+  
+  # Return the modified summary
+  return(summary_cox)
+}
+```
+
+```{r Define a Function to Generate and Summarize the Univariate Cox Proportional Hazards Summary Results for Each Covariate in the Grouped Covariate Sets}
+# Function to perform univariate Cox regression modeling
+univariate_cox_models <- function(variables, data) {
+  for (var in variables) {
+    # Print the variable being processed for debugging
+    cat("Processing variable:", var, "\n")
+    
+    # Check if the required columns are present in the data
+    if (!all(c("time_to_event_in_years", "event_status") %in% colnames(data))) {
+      stop("Data does not contain required columns: 'time_to_event_in_years' and 'event_status'")
+    }
+    
+    # Check if the data columns are of the correct type
+    if (!is.numeric(data$time_to_event_in_years)) {
+      stop("The 'time_to_event_in_years' column must be numeric")
+    }
+    if (!is.numeric(data$event_status)) {
+      stop("The 'event_status' column must be numeric")
+    }
+    
+    # Print the formula being used for debugging
+    formula_str <- paste('Surv(time_to_event_in_years, event_status) ~', var)
+    cat("Using formula:", formula_str, "\n")
+    
+    # Construct the Cox regression model using each covariate
+    cox_model <- tryCatch(
+      {
+        coxph(as.formula(formula_str), data = data)
+      },
+      error = function(e) {
+        cat("Error in Cox model for variable", var, ":", e$message, "\n")
+        return(NULL)
+      }
+    )
+    
+    # Check if the model was successfully created
+    if (is.null(cox_model)) {
+      next
+    }
+    
+    # Print the summary for variable
+    cat("Summary for variable:", var, "\n")
+    
+    # Print the rounded summary of the model
+    rounded_summary <- round_cox_summary(cox_model)
+    print(rounded_summary)
+    
+    # Save the rounded summary to the R environment
+    assign(paste0("rounded_summary_", var), rounded_summary, envir = .GlobalEnv)
+  }
+}
+```
+
+```{r}
+complete_cases_select <- complete_cases_select |>
+  mutate(event_status = case_when(
+    event_status == "Censored" ~ 0,
+    event_status == "Expired" ~ 1,
+    TRUE ~ NA_real_  # Handle unexpected values as NA
+  ))
+```
+
+```{r Fit the Univariate Models and Print Results Summaries}
+univariate_cox_models(select_model_1_vars, complete_cases_select)
+univariate_cox_models(select_model_2_vars, complete_cases_select)
+univariate_cox_models(select_model_3_vars, complete_cases_select)
+univariate_cox_models(select_model_4_vars, complete_cases_select)
+```
+
+## Multivariable Cox Regression Modeling
+
+```{r Models 1-5: Fit the Multivariable Models for All Proposed Covariates}
+# Fit Model 1: Depression Level at Year 1
+model_1 <- coxph(Surv(time_to_event_in_years, event_status) ~ depression_level_at_year_1, complete_cases_select)
+
+# Fit Model 2: Mental Health-Related Covariates
+model_2_formula <- as.formula(paste('Surv(time_to_event_in_years, event_status) ~', 
+                                    paste(c(select_model_1_vars,
+                                            select_model_2_vars),
+                                            collapse = " + ")))
+model_2 <- coxph(model_2_formula, data = complete_cases_select)
+
+# Fit Model 3: Mental Health + Sociodemographic covariates
+model_3_formula <- as.formula(paste('Surv(time_to_event_in_years, event_status) ~', 
+                                    paste(c(select_model_1_vars,
+                                            select_model_2_vars,
+                                            select_model_3_vars), 
+                                          collapse = " + ")))
+model_3 <- coxph(model_3_formula, data = complete_cases_select)
+
+# Fit Model 4: Mental Health + Sociodemographic + Clinical covariates
+model_4_formula <- as.formula(paste('Surv(time_to_event_in_years, event_status) ~', 
+                                    paste(c(select_model_1_vars,
+                                            select_model_2_vars,
+                                            select_model_3_vars,
+                                            select_model_4_vars), 
+                                          collapse = " + ")))
+model_4 <- coxph(model_4_formula, data = complete_cases_select)
+
+# Save the Cox proportional hazards models as R objects
+saveRDS(model_1, here(data_processed_dir, "cox_model_1.rds"))
+saveRDS(model_2, here(data_processed_dir, "cox_model_2.rds"))
+saveRDS(model_3, here(data_processed_dir, "cox_model_3.rds"))
+saveRDS(model_4, here(data_processed_dir, "cox_model_4.rds"))
+```
+
+```{r Summarize the Multivariable Models and Round the Results to Two Decimal Places}
+# Summarize the models and round results to two decimal places
+rounded_summary_model_2 <- round_cox_summary(model_2)
+rounded_summary_model_3 <- round_cox_summary(model_3)
+rounded_summary_model_4 <- round_cox_summary(model_4)
+
+# Print the rounded summaries
+print(rounded_summary_model_2)
+print(rounded_summary_model_3)
+print(rounded_summary_model_4)
+```
+
+```{r Display and Save Multivariable Cox Proportional Hazards Model Results in a Nested Summary Table}
+# Create gtsummary Tables with modified variable labels
+tbl_model_1 <- tbl_regression(model_1, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+  modify_header(p.value ~ "**_p_**") |>
+  bold_labels() |>
+  bold_p()
+
+tbl_model_2 <- tbl_regression(model_2, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+  modify_header(p.value ~ "**_p_**") |>
+  bold_labels() |>
+  bold_p()
+
+tbl_model_3 <- tbl_regression(model_3, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+  modify_header(p.value ~ "**_p_**") |>
+  bold_labels() |>
+  bold_p()
+
+tbl_model_4 <- tbl_regression(model_4, exponentiate = TRUE, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 2)) |>
+  modify_header(p.value ~ "**_p_**") |>
+  bold_labels() |>
+  bold_p()
+
+# Merge the tables
+tbl_nested_models <- tbl_merge(
+  tbls = list(tbl_model_1, tbl_model_2, tbl_model_3, tbl_model_4),
+  tab_spanner = c("**Model 1**", "**Model 2**", "**Model 3**", "**Model 4**")
+)
+
+# Convert the merged table and adjust the font size
+tbl_nested_models <- tbl_nested_models |>
+  as_gt() |>
+  gt::tab_options(table.font.size = 'small')
+
+# Save the table
+gtsave(tbl_nested_models, here(tables_dir, "table_3-0_nested_cox_regression_models_final.png"))
+```
+
+```{r Display and Save Cox Proportional Hazards Model Results in Separate Summary Tables}
+# Function to create and customize the gtsummary table
+create_summary_table <- function(model, var_name_mapping) {
+  tbl <- tbl_regression(model, exponentiate = TRUE) %>%
+    modify_header(label ~ "**Characteristic**") %>%  # Bold the header
+    bold_labels() %>%                             # Bold the variable names
+    modify_fmt_fun(p.value ~ function(x) ifelse(x < 0.05, paste0("<b>", formatC(x, format = "f", digits = 3), "</b>"), formatC(x, format = "f", digits = 3))) # Format p-values
+
+  for (old_name in names(var_name_mapping)) {
+    new_name <- var_name_mapping[[old_name]]
+    tbl <- tbl %>%
+      modify_table_body(
+        ~ .x %>% mutate(label = ifelse(label == old_name, new_name, label))
+      )
+  }
+  return(tbl)
+}
+
+# Summarize the models using tbl_regression from gtsummary and apply custom variable labels
+summary_model_1 <- create_summary_table(model_1, var_name_mapping)
+summary_model_2 <- create_summary_table(model_2, var_name_mapping)
+summary_model_3 <- create_summary_table(model_3, var_name_mapping)
+summary_model_4 <- create_summary_table(model_4, var_name_mapping)
+
+# Modify and print the tables with gt
+gt_summary_model_1 <- summary_model_1 |>
+  as_gt() |>
+  gt::tab_options(table.font.size = 'small')
+
+gt_summary_model_2 <- summary_model_2 |> 
+  as_gt() |> 
+  gt::tab_options(table.font.size = 'small')
+
+gt_summary_model_3 <- summary_model_3 |> 
+  as_gt() |> 
+  gt::tab_options(table.font.size = 'small')
+
+gt_summary_model_4 <- summary_model_4 |> 
+  as_gt() |> 
+  gt::tab_options(table.font.size = 'small')
+
+# Save gt tables to HTML files
+html_files <- list(
+  file.path(tables_dir, "table_3-1_model_1.html"),
+  file.path(tables_dir, "table_3-2_model_2.html"),
+  file.path(tables_dir, "table_3-3_model_3.html"),
+  file.path(tables_dir, "table_3-4_model_4.html"))
+
+gtsave(gt_summary_model_1, filename = html_files[[1]])
+gtsave(gt_summary_model_2, filename = html_files[[2]])
+gtsave(gt_summary_model_3, filename = html_files[[3]])
+gtsave(gt_summary_model_4, filename = html_files[[4]])
+
+# Convert HTML files to high-resolution PNG with 300 DPI
+png_files <- sub(".html", ".png", html_files)
+for (i in seq_along(html_files)) {
+  webshot2::webshot(
+    html_files[[i]], 
+    file = png_files[[i]], 
+    vwidth = 1200, 
+    vheight = 800, 
+    zoom = 3  # Adjust zoom to effectively increase DPI
+  )
+}
+
+# Remove HTML files after PNG files are created
+for (html_file in html_files) {
+  if (file.exists(html_file)) {
+    file.remove(html_file)
+  }
+}
+```
+
+### Assess Multicollinearity
+
+#### Plot Multicollinearity
+
+```{r Assess Multicollinearity via the Variance Inflation Factor}
+# Define the VIF model using all proposed covariates
+model_4_vif <- lm(as.formula(paste("event_status ~", paste(all_select_covariates, collapse = " + "))), 
+                  data = complete_cases_select)
+
+# Display the table in the console
+vif_values <- car::vif(model_4_vif)
+print(vif_values)
+
+# Create a gtsummary table for the VIF results
+vif_table <- tbl_regression(model_4_vif, label = var_name_mapping, pvalue_fun = purrr::partial(style_pvalue, digits = 3)) |>
+  modify_header(label ~ "**VIF Summary Table for Model 4**", p.value ~ "**_p_-value**") |>
+  bold_labels() |>
+  bold_p() |>
+  add_vif() |>
+  as_gt()
+
+# Save the table as an image
+gtsave(vif_table, here(tables_dir, "table_4-0_vif_summary_table_model_4_final.png"))
+```
+
+```{r Assess Multicollinearity via the Correlation Matrix}
+# Select numeric predictors
+numeric_predictors <- complete_cases_select |>
+  # Exclude the survival object variables and non-model covariates
+  select(-id, -event_status, -time_to_event_in_years, -func_score_at_year_1) |>
+  select(where(is.numeric))
+
+# Calculate the correlation matrix
+correlation_matrix <- cor(numeric_predictors, use = "complete.obs")
+print(correlation_matrix)
+
+# Rename the correlation matrix variable names
+colnames(correlation_matrix) <- var_name_mapping[colnames(correlation_matrix)]
+rownames(correlation_matrix) <- var_name_mapping[rownames(correlation_matrix)]
+
+# Generate a color palette for the correlation matrix
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+
+# Save the correlation matrix plot to a file
+png(filename = file.path(multicollinearity_plots_dir, "correlation_matrix_final.png"),
+    width = 4000, height = 3000, res = 300)
+par(family = "Proxima Nova")
+
+# Visualize the correlation matrix
+corrplot(correlation_matrix, method = "shade", shade.col = NA, tl.col = "black", tl.srt = 45,
+         col = col(200), addCoef.col = "black", cl.pos = "n", order = "AOE")
+dev.off()
+```
+
+## Assessing Model Assumptions
+
+# Define Helper Functions
+
+```{r Test the Proportional Hazards Assumption for the Cox Regression Model Fit of All Proposed Covariates Using the Schoenfeld Residuals Test}
+# Perform the Schoenfeld test on Models 1-4
+schoenfeld_test_results_model_1 <- cox.zph(model_1, transform = "identity")
+schoenfeld_test_results_model_2 <- cox.zph(model_2, transform = "identity")
+schoenfeld_test_results_model_3 <- cox.zph(model_3, transform = "identity")
+schoenfeld_test_results_model_4 <- cox.zph(model_4, transform = "identity")
+
+# Define a function to extract results into a data frame
+extract_schoenfeld_results <- function(test_result) {
+  data.frame(
+    Variable = rownames(test_result$table),
+    chisq = test_result$table[, "chisq"],
+    df = test_result$table[, "df"],
+    p = test_result$table[, "p"]
+  )
+}
+
+# Extract results for each model and replace "NA" with "GLOBAL"
+schoenfeld_results_model_1 <- extract_schoenfeld_results(schoenfeld_test_results_model_1)
+schoenfeld_results_model_2 <- extract_schoenfeld_results(schoenfeld_test_results_model_2)
+schoenfeld_results_model_3 <- extract_schoenfeld_results(schoenfeld_test_results_model_3)
+schoenfeld_results_model_4 <- extract_schoenfeld_results(schoenfeld_test_results_model_4)
+
+# Define a function to create a gt table for the results with variable renaming
+create_gt_table <- function(results_df, model_name, var_name_mapping) {
+  results_df <- results_df |>
+    mutate(Variable = var_name_mapping[Variable])
+
+  results_df |>
+    gt() |>
+    tab_header(
+      title = paste("Schoenfeld Residuals Test Results for", model_name)
+    ) |>
+    fmt_number(
+      columns = c(chisq, df),        # Format only chisq and df
+      decimals = 3
+    ) |>
+    fmt(                           # New formatting for p-values
+      columns = "p",
+      fns = function(x) ifelse(x < 0.001, "<0.001", sprintf("%.3f", x))  # Conditional formatting
+    ) |>
+    cols_label(
+      Variable = "Characteristic",
+      chisq = "Chi-Square",
+      df = "Degrees of Freedom",
+      p = "p-value"
+    ) |>
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_column_labels(everything())
+    ) |>
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_body(
+        columns = "p",
+        rows = p < 0.05
+      )
+    ) |>
+    tab_footnote(
+      footnote = "p-values less than 0.05 indicate violation of the proportional hazards assumption",
+      locations = cells_column_labels("p")
+    )
+}
+
+# Create gt tables for each model with variable renaming
+gt_table_model_1 <- create_gt_table(schoenfeld_results_model_1, "Model 1", var_name_mapping)
+gt_table_model_2 <- create_gt_table(schoenfeld_results_model_2, "Model 2", var_name_mapping)
+gt_table_model_3 <- create_gt_table(schoenfeld_results_model_3, "Model 3", var_name_mapping)
+gt_table_model_4 <- create_gt_table(schoenfeld_results_model_4, "Model 4", var_name_mapping)
+
+# Save gt tables to HTML files
+html_files <- list(
+  file.path(schoenfeld_dir, "schoenfeld_test_model_1_final.html"),
+  file.path(schoenfeld_dir, "schoenfeld_test_model_2_final.html"),
+  file.path(schoenfeld_dir, "schoenfeld_test_model_3_final.html"),
+  file.path(schoenfeld_dir, "schoenfeld_test_model_4_final.html")
+)
+
+gtsave(gt_table_model_1, filename = html_files[[1]])
+gtsave(gt_table_model_2, filename = html_files[[2]])
+gtsave(gt_table_model_3, filename = html_files[[3]])
+gtsave(gt_table_model_4, filename = html_files[[4]])
+
+# Convert HTML files to high-resolution PNG images
+png_files <- sub(".html", ".png", html_files)
+for (i in seq_along(html_files)) {
+  webshot2::webshot(
+    html_files[[i]], 
+    file = png_files[[i]], 
+    vwidth = 1200, 
+    vheight = 800, 
+    zoom = 3  # Adjust zoom to effectively increase DPI
+  )
+}
+
+# Remove HTML files after PNG files are created
+for (html_file in html_files) {
+  if (file.exists(html_file)) {
+    file.remove(html_file)
+  }
+}
+
+# Print the Schoenfeld test results in the console
+print(schoenfeld_test_results_model_1)
+print(schoenfeld_test_results_model_2)
+print(schoenfeld_test_results_model_3)
+print(schoenfeld_test_results_model_4)
+```
+
+```{r Define a Function to Create and Save the Schoenfeld Residual Plots for a Specified Model}
+# Define the preferred variable labels for each covariate in Model 5
+var_labels <- c("Beta(t) for Depression Level at Year 1",
+                "Beta(t) for Age at Injury",
+                "Beta(t) for Sex",
+                "Beta(t) for Educational Attainment at Injury",
+                "Beta(t) for Medicaid Status",
+                "Beta(t) for History of Mental Health Treatment",
+                "Beta(t) for History of Suicide Attempt",
+                "Beta(t) for Problematic Substance Use at Injury",
+                "Beta(t) for Function Factor Score at Year 1")
+
+# Define a function to create and save the plot with custom x-axis labels
+create_plot <- function(index, label) {
+  plot_file <- file.path(here("output", "plots", "schoenfeld_residuals"),
+                         paste0("plot_", index, ".png"))
+  
+  # Save each plot to a PNG file with 300 dpi resolution
+  png(plot_file, width = 2400, height = 1600, res = 300, family = "Proxima Nova")
+  
+  # Plot the residual with the custom y-axis label and no x-axis
+  plot(schoenfeld_test_results_model_4[index],
+       main = "Proportional Hazards Assumption Test",
+       xlab = "Time from Year 1 Interview (years)",
+       ylab = label,
+       xaxt = "n",
+       family = "Proxima Nova")
+  abline(h = 0, lty = 3, col = "red")
+  
+  # Manually set x-axis labels
+  axis(1, at = axTicks(1), labels = axTicks(1), family = "Proxima Nova")
+  
+  # Close the PNG device
+  dev.off()
+}
+
+# Verify the length of var_labels matches the number of columns in schoenfeld_test_results_model_4$y
+num_elements <- ncol(schoenfeld_test_results_model_4$y)
+cat("Number of elements in schoenfeld_test_results_model_4:", num_elements, "\n")
+
+if (length(var_labels) != num_elements) {
+  stop("The number of labels does not match the number of elements in schoenfeld_test_results_model_4.")
+}
+
+# Loop through each variable and create residual plots
+for (i in seq_len(num_elements)) {
+  create_plot(i, var_labels[i])
+}
+```
+
+### Plotting Martingale Residuals
+
+```{r Calculate Martingale Residuals}
+martingale_residuals <- residuals(model_4, type = "martingale")
+```
+
+```{r Plot Martingale Residuals}
+# Create a data frame of continuous covariates and Martingale residuals for plotting
+martingale_plot_data <- data.frame(Age_at_Injury = complete_cases_select$age_at_injury,
+                                   Education_Level = complete_cases_select$education_level_at_injury,
+                                   Function_Factor_Score_Q5 = complete_cases_select$func_score_at_year_1_q5,
+                                   Martingale_Residuals = martingale_residuals)
+```
+
+```{r Plot Figure 19-1}
+# Filter out non-finite values from the data
+martingale_plot_data <- martingale_plot_data |>
+  filter(is.finite(Age_at_Injury) & is.finite(Martingale_Residuals)) |>
+  filter(!is.na(Age_at_Injury) & !is.na(Martingale_Residuals))
+
+# Plot Martingale residuals against age at injury
+gg.age_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Age_at_Injury, y = Martingale_Residuals)) +
+  geom_point() + # Plot points
+  geom_smooth(method = "loess", color = "#EF5350", linewidth = 1.25) + # Add a Loess curve
+  labs(x = "Age at Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Age at Injury") +
+  scale_x_continuous(breaks = seq(16, 96, by = 10), limits = c(15, 100)) + # Adjust x-axis tick values and limits
+  scale_y_continuous(breaks = seq(-3.5, 2.0, by = 1.0), limits = c(-3.5, 2.0)) + # Adjust y-axis tick values
+  theme_minimal(base_family = "Proxima Nova") +
+  theme(plot.title = element_text(size = 18)) +
+  customization_martingale
+
+ggsave(here(martingale_residuals_plots_dir, "figure_19-1_age_at_injury_vs_martingale_residuals.png"),
+       plot = gg.age_at_injury_vs_martingale,
+       width = 10, # Specify the width in inches
+       height = 6, # Specify the height in inches
+       bg = "#FFFFFF",
+       dpi = 300)
+```
+
+```{r Plot Figure 19-2}
+# Filter out non-finite values from the data
+martingale_plot_data <- martingale_plot_data |>
+  filter(is.finite(Education_Level) & is.finite(Martingale_Residuals)) |>
+  filter(!is.na(Education_Level) & !is.na(Martingale_Residuals))
+
+# Plot Martingale residuals against education level at injury
+gg.education_level_at_injury_vs_martingale <- ggplot(martingale_plot_data, aes(x = Education_Level, y = Martingale_Residuals)) +
+  geom_point() + # Plot points
+  geom_smooth(method = "loess", color = "#EF5350", linewidth = 1.25) + # Add a Loess curve
+  labs(x = "Education Level at Injury", y = "Martingale Residuals", title = "Martingale Residuals vs. Education Level at Injury") +
+  scale_x_continuous(breaks = seq(0, 20, by = 5), limits = c(0, 20)) + # Adjust x-axis tick values and limits
+  scale_y_continuous(breaks = seq(-3.5, 2.0, by = 1.0), limits = c(-3.5, 2.0)) + # Adjust y-axis tick values
+  theme_minimal(base_family = "Proxima Nova") +
+  theme(plot.title = element_text(size = 18)) +
+  customization_martingale
+
+ggsave(here(martingale_residuals_plots_dir, "figure_19-2_education_level_at_injury_vs_martingale_residuals.png"),
+       plot = gg.education_level_at_injury_vs_martingale,
+       width = 10, # Specify the width in inches
+       height = 6, # Specify the height in inches
+       bg = "#FFFFFF",
+       dpi = 300)
+```
+
+```{r Plot 19-3}
+# Filter out non-finite and NA values from the data
+martingale_plot_data <- martingale_plot_data |>
+  filter(is.finite(Function_Factor_Score_Q5) & is.finite(Martingale_Residuals)) |>
+  filter(!is.na(Function_Factor_Score_Q5) & !is.na(Martingale_Residuals))
+
+# Plot Martingale residuals against education level at injury
+gg.function_factor_score_q5_at_year_1_vs_martingale <- ggplot(martingale_plot_data, aes(x = Function_Factor_Score_Q5, y = Martingale_Residuals)) +
+  geom_point() + # Plot points
+  geom_smooth(method = "loess", color = "#EF5350", linewidth = 1.25) + # Add a Loess curve
+  labs(x = "Function Factor Score at Year 1 Quintiles", y = "Martingale Residuals", title = "Martingale Residuals vs. Function Factor Score at Year 1") +
+  scale_y_continuous(breaks = seq(-3.5, 2.0, by = 1.0), limits = c(-3.5, 2.0)) + # Adjust y-axis tick values
+  theme_minimal(base_family = "Proxima Nova") +
+  theme(plot.title = element_text(size = 18)) +
+  customization_martingale
+
+ggsave(here(martingale_residuals_plots_dir, "figure_19-3_function_factor_score_at_year_1_q5_vs_martingale_residuals.png"),
+       plot = gg.function_factor_score_q5_at_year_1_vs_martingale,
+       width = 10, # Specify the width in inches
+       height = 6, # Specify the height in inches
+       bg = "#FFFFFF",
+       dpi = 300)
+```
+
+## Plotting Survival Curves
+
+```{r Create Prediction Data Frames}
+# Define the stratum for the Model 1 plot
+stratum <- data.frame(depression_level_at_year_1 = levels(complete_cases_select$depression_level_at_year_1))
+rownames(stratum) <- letters[1:nrow(stratum)] # Ensure the length of row names matches the number of rows in stratum
+
+# Define the strata for the Model 5 plot
+strata <- expand.grid(
+  depression_level_at_year_1 = levels(complete_cases_select$depression_level_at_year_1),
+  sex = levels(complete_cases_select$sex)
+)
+rownames(strata) <- letters[1:nrow(strata)] # Ensure the length of row names matches the number of rows in strata
+
+# Define the average participant
+average_participant <- expand.grid(
+  depression_level_at_year_1 = levels(complete_cases_select$depression_level_at_year_1),
+  sex = levels(complete_cases_select$sex),
+  age_at_injury = median(complete_cases_select$age_at_injury),
+  education_level_at_injury = median(complete_cases_select$education_level_at_injury),
+  rehab_payor_primary_type = "Non-Medicaid",
+  cause_of_injury = "Vehicular",
+  func_score_at_year_1_q5 = median(complete_cases_select$func_score_at_year_1_q5),
+  mental_health_tx_hx = "Denied any history of mental health treatment",
+  problematic_substance_use_at_injury = "No",
+  suicide_attempt_hx = "Denied any history of suicide attempt"
+)
+rownames(average_participant) <- letters[1:nrow(average_participant)]
+```
+
+```{r Generate Survival Curves}
+# Fit the survival model for Model 1
+cxsf0 <- survfit(model_1, newdata = strata, conf.type = "none")
+surv_cxsf0 <- surv_summary(cxsf0, data = complete_cases_select) |>  # Summarize the survival model
+  tibble()
+m_newdat0 <- average_participant[as.character(surv_cxsf0$strata), ]  # Match new data with survival summary strata
+
+# Fit the survival model for Model 4
+cxsf <- survfit(model_4, newdata = average_participant, conf.type = "none")
+surv_cxsf <- surv_summary(cxsf, data = complete_cases_select) |>  # Summarize the survival model
+  tibble()
+m_newdat <- average_participant[as.character(surv_cxsf$strata), ]  # Match new data with survival summary strata
+
+# Define the crop limit
+crop <- 0.5
+```
+
+```{r Plot the Survival Curves for Model 1}
+# Combine objects for Model 1
+surv_model_1 <- cbind(surv_cxsf0, m_newdat0)
+
+# Plot the survival curve of the unadjusted model
+gg.surv.model1 <- surv_model_1 |>
+  ggsurvplot_df(
+    surv.geom = geom_line,
+    color = "depression_level_at_year_1",
+    xlab = "Time After Initial Interview (years)",
+    ylab = "Survival Probability",
+    legend.title = "Depression Level at Year 1",
+    legend = c(0.175, 0.1),
+    conf.int = FALSE,
+    censor = FALSE,
+    surv.scale = "percent",
+    break.time.by = 1,
+    xlim = c(0, 5), # Limit x-axis to 5 years
+    # ylim = c(crop, 1),
+    palette = c("#90cbf9", "#2196f3", "#114b7a"),
+    ggtheme = theme_classic(),
+    ) + 
+  customization_survival_curves
+
+ggsave(here(survival_curves_plots_dir, "figure_20-1_kaplan_meier_curves_model_1.png"),
+       gg.surv.model1, dpi = 300)
+```
+
+```{r Plot the Survival Curves for Model 4}
+# Combine objects for Model 4
+surv_model_4 <- cbind(surv_cxsf, m_newdat)
+
+# Plot the survival curve of Model 4
+gg.surv.model4 <- surv_model_4 |>
+  ggsurvplot_df(
+    surv.geom = geom_line,
+    color = "depression_level_at_year_1",
+    linetype = "sex",
+    xlab = "Time After Initial Interview (years)",
+    ylab = "Survival Probability",
+    legend = c(0.175, 0.175),
+    conf.int = FALSE,
+    censor = FALSE,
+    surv.scale = "percent",
+    break.time.by = 1,
+    xlim = c(0, 5), # Limit x-axis to 5 years
+    ylim = c(crop, 1),
+    palette = c("#90cbf9", "#2196f3", "#114b7a"),
+    ggtheme = theme_classic(),
+  ) +
+  labs(linetype = "Sex", color = "Depression Level at Year 1") +
+  customization_survival_curves
+
+ggsave(here(survival_curves_plots_dir, "figure_20-2_kaplan_meier_curves_model_4.png"),
+       gg.surv.model4, dpi = 300)
+```
+
+```{r Define the Preferred Variable Labels for the Measures}
+# Define the preferred variable labels for all model covariates and all factor levels
+forest_plot_var_name_mapping <- c(
+  "depression_level_at_year_1Minor Depression" = "Depression Level at Year 1: Minor Depression",
+  "depression_level_at_year_1Major Depression" = "Depression Level at Year 1: Major Depression",
+  "age_at_injury" = "Age at Injury",
+  "sexFemale" = "Sex: Female",
+  "education_level_at_injury" = "Educational Attainment at Injury",
+  "rehab_payor_primary_typeMedicaid" = "Primary Rehabilitation Payor: Medicaid",
+  "mental_health_tx_hxMental health treatment received prior to year preceding index injury only" =
+    "Mental Health Treatment: Received prior to year preceding injury only",
+  "mental_health_tx_hxMental health treatment received within year preceding index injury" =
+    "Mental Health Treatment: Received within year preceding injury",
+  "suicide_attempt_hxSuicide attempt history prior to injury" = "Suicide Attempt: Attempted prior to injury",
+  "suicide_attempt_hxSuicide attempt in the first year post-injury" = "Suicide Attempt: Attempted in the first year post-injury",
+  "problematic_substance_use_at_injuryYes" = "Problematic Substance Use at Injury: Endorsed",
+  "func_score_at_year_1_q5" = "Function Factor Score at Year 1 (Quintiles)"
+)
+```
+
+```{r Create Forest Plot of Model 4 Results}
+# Extract model summary in tidy format
+model_4_tidy <- tidy(model_4, exponentiate = TRUE, conf.int = TRUE) |>
+  mutate(
+    term = plyr::revalue(as.character(term), forest_plot_var_name_mapping), 
+    term = factor(term, levels = forest_plot_var_name_mapping),
+    estimate = round(estimate, 2),
+    conf.low = round(conf.low, 2),
+    conf.high = round(conf.high, 2),
+    conf.int = paste0(conf.low, "-", conf.high),
+    p.value = ifelse(p.value < 0.001, "< 0.001", round(p.value, 3))
+  )
+
+# Reverse factor levels of 'term' to display mental health covariates first
+model_4_tidy$term <- factor(model_4_tidy$term, levels = rev(levels(model_4_tidy$term)))
+
+# Create Plot Components
+# Point & Line Range (Hazard Ratio & CI)
+point_line_range <- ggplot(model_4_tidy, aes(x = estimate, y = term)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high), height = 0) +
+  geom_vline(xintercept = 1, linetype = "dashed") +
+  annotate("text", x = 0.5, y = Inf, label = "Protective Factor", hjust = 1, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  annotate("text", x = 1.5, y = Inf, label = "Risk Factor", hjust = 0, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  labs(x = "Hazard Ratio (95% CI)", y = "") +
+  theme_classic() + 
+  customization +
+  scale_x_continuous(
+    breaks = seq(
+      -1, # Start the x-axis at -1
+      ceiling(max(model_4_tidy$conf.high)), 
+      by = 1
+    ),
+    limits = c(-1, ceiling(max(model_4_tidy$conf.high))) # Ensure the entire x-axis is displayed
+  ) 
+
+# Estimate Annotations (HR and CI numbers)
+estimate_annotations <- ggplot(model_4_tidy, aes(x = 2.5, y = term, label = paste0(estimate, " (", conf.int, ")"))) +
+  geom_text(hjust = 0, size = 3, family = "Proxima Nova") +
+  annotate("text", x = 2.5, y = Inf, label = "Hazard Ratio (95% CI)", hjust = 0, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  theme_void()
+
+# P-Value Annotations
+p_value_annotations <- ggplot(model_4_tidy, aes(x = 0, y = term)) +
+  geom_text(aes(label = p.value), hjust = 1, size = 3, family = "Proxima Nova", 
+            fontface = ifelse(model_4_tidy$p.value < 0.05, "bold", "plain")) +  # Conditional bolding
+  annotate("text", x = 0, y = Inf, label = "p-value", hjust = 1, vjust = 1, family = "Proxima Nova", fontface = "bold", size = 3.5) +
+  theme_void()
+
+# Combine Plots
+combined_plot <- point_line_range + estimate_annotations + p_value_annotations +
+  plot_layout(widths = c(2, 1, 1))
+
+# Define the file path for the PNG
+file_path <- file.path(forest_plots_dir, "forest_plot.png")
+
+# Save the plot
+ggsave(filename = file_path, plot = combined_plot, width = 16, height = 8, units = "in", dpi = 300)
+
+# Display Plot
+print(combined_plot)
+```
