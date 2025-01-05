@@ -5,6 +5,8 @@ format: html
 editor: visual
 ---
 
+# Install and Load Libraries
+
 ```{r Initial Setup and Library Loading, echo = FALSE}
 # Load the pacman package (install if necessary)
 if (!requireNamespace("pacman", quietly = TRUE)) {
@@ -21,22 +23,22 @@ if (!dir.exists(data_processed_dir)) {
 }
 
 # Create the 'Output/Plots/Univariate_and_Bivariate_Plots' subdirectory if not already available
-univariate_and_bivariate_plots_dir <- here("Output", "Plots", "Univariate_and_Bivariate_Plots")
+univariate_and_bivariate_plots_dir <- here("Output", "Plots", "Univariate_and_Bivariate_plots")
 if (!dir.exists(univariate_and_bivariate_plots_dir)) {
   dir.create(univariate_and_bivariate_plots_dir, recursive = TRUE)
 }
 
 # Load the .rds files
-analytic_data_imputed <- readRDS(file.path(data_processed_dir, "analytic_data_imputed.rds"))
+# analytic_data_imputed <- readRDS(file.path(data_processed_dir, "analytic_data_imputed.rds"))
 analytic_data_final <- readRDS(file.path(data_processed_dir, "analytic_data_final.rds"))
-complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all.rds"))
+complete_cases_all <- readRDS(file.path(data_processed_dir, "complete_cases_all_final.rds"))
+complete_cases_select <- readRDS(file.path(data_processed_dir, "complete_cases_select_final.rds"))
 
 # Import fonts from Font Book
 loadfonts(device = "all", quiet = TRUE)
-
-# Set a random seed for reproducibility
-set.seed(42)
 ```
+
+# Plots
 
 ```{r Create Custom Theme}
 # Create custom theme
@@ -52,36 +54,9 @@ customization <- theme(
 )
 ```
 
-```{r Prepare a summarized dataset for the plots}
-# Define a custom function to obtain the first valid (non-NA) value for a given variable
-first_non_na <- function(x) {
-  x[!is.na(x)][1]
-}
-
-# Create a summarized dataset containing the first valid value for each specified variable
-summarized_data <- analytic_data_imputed |>
-  group_by(id) |>
-  summarize(
-    across(
-      c(depression_level_at_year_1, employment_at_injury, marital_status_at_injury,
-        rehab_payor_primary, rehab_payor_primary_type, cause_of_injury,
-        drs_total_at_year_1, fim_total_at_year_1, gose_total_at_year_1,
-        mental_health_tx_hx, psych_hosp_hx,
-        problematic_substance_use_at_injury, problematic_substance_use_at_year_1,
-        suicide_attempt_hx_lifetime_at_injury,  suicide_attempt_hx_past_year_at_injury, 
-        suicide_attempt_hx_past_year_at_year_1, suicide_attempt_hx),
-      ~ first_non_na(.x)
-    ),
-    .groups = "drop"  # Ensure the resulting tibble is ungrouped
-  )
-```
-
 ### Figure 1-1 and Figure 1-2: Counts and Percentages of Censored vs. Expired Participants by Depression Level at Year 1
 
 ```{r Plot Figure 1-1 (Final Analytic Sample)}
-# Convert event status to factor
-analytic_data_final$event_status <- as.factor(analytic_data_final$event_status)
-
 # Create the counts plot
 # Filter out NA values in 'event_status'
 vital_status_by_depression_data <- analytic_data_final |>
@@ -97,8 +72,8 @@ gg.vital_status_by_depression <- ggplot(vital_status_by_depression_data,
                                             fill = event_status)) +
   geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
   scale_fill_manual(labels = c("Censored", "Expired"),
-                    values = c("0" = "#CFD8DC",
-                               "1" = "#37474F")) +
+                    values = c("Censored" = "#CFD8DC",
+                               "Expired" = "#37474F")) +
   geom_text(data = count_data_vital_status,
             aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
             position = position_dodge(width = 0.9),
@@ -125,26 +100,23 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-1_vital_status_by_depr
 ```
 
 ```{r Plot Figure 1-1 (Complete-Case Sample)}
-# Convert event status to factor
-complete_cases_all$event_status <- as.factor(complete_cases_all$event_status)
-
 # Create the counts plot
-# Filter out NA values in 'event_status'
-vital_status_by_depression_data <- complete_cases_all |>
+# Filter out missing values in 'event_status' to ensure a clean dataset
+vital_status_by_depression_data <- complete_cases_select |>
   drop_na(event_status)
 
-# Calculate the counts for each depression level group
+# Count the number of occurrences for each depression level and vital status
 count_data_vital_status <- vital_status_by_depression_data |>
   count(depression_level_at_year_1, event_status)
 
-# Create the event status by depression level plot
+# Create a bar plot for counts by depression level and vital status
 gg.vital_status_by_depression <- ggplot(vital_status_by_depression_data,
                                         aes(x = depression_level_at_year_1,
                                             fill = event_status)) +
   geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
   scale_fill_manual(labels = c("Censored", "Expired"),
-                    values = c("0" = "#CFD8DC",
-                               "1" = "#37474F")) +
+                    values = c("Censored" = "#CFD8DC",
+                               "Expired" = "#37474F")) +
   geom_text(data = count_data_vital_status,
             aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
             position = position_dodge(width = 0.9),
@@ -155,7 +127,7 @@ gg.vital_status_by_depression <- ggplot(vital_status_by_depression_data,
                       "#0C1011", "#FFFFFF",
                       "#0C1011", "#FFFFFF")) +
   labs(x = "Depression Level at Year 1", y = "Count", fill = "Vital Status") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 500, by = 100)) +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1000, by = 100)) +
   theme_classic() +
   customization +
   theme(
@@ -177,9 +149,6 @@ mortality_plot_pct_data <- analytic_data_final |>
   group_by(depression_level_at_year_1) |>
   mutate(pct = n / sum(n) * 100)
 
-# Ensure the factor levels for 'event_status' are correct
-mortality_plot_pct_data$event_status <- factor(mortality_plot_pct_data$event_status, levels = c(0, 1))
-
 # Plot the aggregated count of 'event_status' for each 'depression_level_at_year_1'
 gg.mortality_pct <- ggplot(mortality_plot_pct_data,
                            aes(x = depression_level_at_year_1,
@@ -187,8 +156,8 @@ gg.mortality_pct <- ggplot(mortality_plot_pct_data,
                                fill = factor(event_status))) +
   geom_bar(stat = "identity", position = position_dodge(), color = "#263238", linewidth = 0.75) +  # Position percentage bars side-by-side
   scale_fill_manual(labels = c("Censored", "Expired"),
-                    values = c("0" = "#CFD8DC",
-                               "1" = "#37474F")) +
+                    values = c("Censored" = "#CFD8DC",
+                               "Expired" = "#37474F")) +
   geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
             position = position_dodge(width = 0.9),
             family = "Proxima Nova",
@@ -216,25 +185,22 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-2_vital_status_pct_fin
 ```
 
 ```{r Plot Figure 1-2 (Complete-Case Sample)}
-# Prepare the data for plotting
-mortality_plot_pct_data <- complete_cases_all |>
+# Prepare the data for plotting by calculating percentages
+mortality_plot_pct_data <- complete_cases_select |>
   drop_na(event_status) |>
   count(depression_level_at_year_1, event_status) |>
   group_by(depression_level_at_year_1) |>
   mutate(pct = n / sum(n) * 100)
 
-# Ensure the factor levels for 'event_status' are correct
-mortality_plot_pct_data$event_status <- factor(mortality_plot_pct_data$event_status, levels = c(0, 1))
-
-# Plot the aggregated count of 'event_status' for each 'depression_level_at_year_1'
+# Create a bar plot for percentages
 gg.mortality_pct <- ggplot(mortality_plot_pct_data,
                            aes(x = depression_level_at_year_1,
                                y = pct,
                                fill = factor(event_status))) +
   geom_bar(stat = "identity", position = position_dodge(), color = "#263238", linewidth = 0.75) +  # Position percentage bars side-by-side
   scale_fill_manual(labels = c("Censored", "Expired"),
-                    values = c("0" = "#CFD8DC",
-                               "1" = "#37474F")) +
+                    values = c("Censored" = "#CFD8DC",
+                               "Expired" = "#37474F")) +
   geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
             position = position_dodge(width = 0.9),
             family = "Proxima Nova",
@@ -277,11 +243,11 @@ data_filtered <- analytic_data_final |>
 
 # Calculate the counts for each age group and depression level at year 1 where event_status is 1 (Expired)
 count_data_expired <- data_filtered |>
-  filter(event_status == 1) |>
+  filter(event_status == "Expired") |>
   count(age_group, depression_level_at_year_1)
 
 # Create the death by age group and depression level plot
-gg.death_by_age_depression <- ggplot(data_filtered %>% filter(event_status == 1),
+gg.death_by_age_depression <- ggplot(data_filtered |> filter(event_status == "Expired"),
                                      aes(x = age_group,
                                          fill = depression_level_at_year_1)) +
   geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
@@ -318,7 +284,7 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-3_death_by_age_depress
 
 ```{r Plot Figure 1-3 (Complete-Case Sample)}
 # Create age groups
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(age_at_injury = as.numeric(as.character(age_at_injury)),
          age_group = cut(age_at_injury, breaks = seq(16, max(age_at_injury, na.rm = TRUE), by = 10),
                          right = FALSE, include.lowest = TRUE,
@@ -326,16 +292,16 @@ complete_cases_all <- complete_cases_all |>
                                         seq(16 + 9, max(age_at_injury, na.rm = TRUE), by = 10), sep = "-")))
 
 # Filter data to include only relevant columns and remove NAs
-data_filtered <- complete_cases_all |>
+data_filtered <- complete_cases_select |>
   drop_na(depression_level_at_year_1, age_group, event_status)
 
 # Calculate the counts for each age group and depression level at year 1 where event_status is 1 (Expired)
 count_data_expired <- data_filtered |>
-  filter(event_status == 1) |>
+  filter(event_status == "Expired") |>
   count(age_group, depression_level_at_year_1)
 
 # Create the death by age group and depression level plot
-gg.death_by_age_depression <- ggplot(data_filtered %>% filter(event_status == 1),
+gg.death_by_age_depression <- ggplot(data_filtered |> filter(event_status == "Expired"),
                                      aes(x = age_group,
                                          fill = depression_level_at_year_1)) +
   geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
@@ -354,7 +320,7 @@ gg.death_by_age_depression <- ggplot(data_filtered %>% filter(event_status == 1)
                       "#0C1011", "#FFFFFF", "#FFFFFF",
                       "#0C1011", "#FFFFFF", "#FFFFFF",
                       "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011")) +
+                      "#0C1011", "#FFFFFF", "#FFFFFF")) +
   labs(x = "Age Group", y = "Count of Expired Participants", fill = "Depression Level at Year 1") +
   scale_y_continuous(labels = scales::comma, breaks = seq(0, 50, by = 5)) +
   theme_classic() +
@@ -371,7 +337,7 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-3_death_by_age_depress
 
 ```{r Plot Figure 1-4 (Final Analytic Sample)}
 # Ensure 'age_at_injury' is numeric and create age groups in the same mutate call
-analytic_data_final <- analytic_data_final %>%
+analytic_data_final <- analytic_data_final |>
   mutate(age_at_injury = as.numeric(as.character(age_at_injury)),
          age_group = cut(age_at_injury, breaks = seq(16, 99, by = 10),
                          right = FALSE, include.lowest = TRUE,
@@ -386,9 +352,6 @@ mortality_plot_pct_data <- analytic_data_final |>
   group_by(age_group, depression_level_at_year_1) |>
   mutate(pct = n / sum(n) * 100)
 
-# Ensure the factor levels for 'event_status' are correct
-mortality_plot_pct_data$event_status <- factor(mortality_plot_pct_data$event_status, levels = c(0, 1), labels = c("Censored", "Expired"))
-
 # Plot the aggregated percentage of 'event_status' for each 'age_group' and 'depression_level_at_year_1'
 gg.mortality_pct <- ggplot(mortality_plot_pct_data,
                            aes(x = age_group,
@@ -402,19 +365,23 @@ gg.mortality_pct <- ggplot(mortality_plot_pct_data,
             family = "Proxima Nova",
             fontface = "bold",
             size = 2,
-            color = c("#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", 
-                      "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", 
-                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", 
-                      "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", 
-                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", 
-                      "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", 
-                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", 
-                      "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", 
-                      "#FFFFFF", "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", 
-                      "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF", "#0C1011", 
-                      "#FFFFFF", "#0C1011", "#FFFFFF", "#FFFFFF", "#FFFFFF")) +
+            color = c("#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF", "#0C1011", "#FFFFFF",
+                      "#FFFFFF")) +
   scale_y_continuous(labels = function(x) paste0(x, "%"),
                      breaks = seq(0, 100, by = 20)) +  # Set breaks at every 20%
   labs(x = "Age Group", y = "Percentage of Participants", fill = "Vital Status") +
@@ -434,7 +401,7 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-4_mortality_pct_by_age
 
 ```{r Plot Figure 1-4 (Complete-Case Sample)}
 # Ensure 'age_at_injury' is numeric and create age groups in the same mutate call
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(age_at_injury = as.numeric(as.character(age_at_injury)),
          age_group = cut(age_at_injury, breaks = seq(16, 96, by = 10),
                          right = FALSE, include.lowest = TRUE,
@@ -443,14 +410,11 @@ complete_cases_all <- complete_cases_all |>
          depression_level_at_year_1 = factor(depression_level_at_year_1, levels = c("No Depression", "Minor Depression", "Major Depression")))
 
 # Prepare the data for plotting
-mortality_plot_pct_data <- complete_cases_all |>
+mortality_plot_pct_data <- complete_cases_select |>
   drop_na(event_status) |>
   count(age_group, depression_level_at_year_1, event_status) |>
   group_by(age_group, depression_level_at_year_1) |>
   mutate(pct = n / sum(n) * 100)
-
-# Ensure the factor levels for 'event_status' are correct
-mortality_plot_pct_data$event_status <- factor(mortality_plot_pct_data$event_status, levels = c(0, 1), labels = c("Censored", "Expired"))
 
 # Plot the aggregated percentage of 'event_status' for each 'age_group' and 'depression_level_at_year_1'
 gg.mortality_pct <- ggplot(mortality_plot_pct_data,
@@ -480,13 +444,14 @@ gg.mortality_pct <- ggplot(mortality_plot_pct_data,
                       "#0C1011", "#FFFFFF",
                       "#0C1011", "#FFFFFF",
                       "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#FFFFFF")) +
+                      "#FFFFFF", "#0C1011",
+                      "#FFFFFF", "#0C1011",
+                      "#FFFFFF", "#0C1011",
+                      "#FFFFFF", "#0C1011",
+                      "#FFFFFF", "#0C1011",
+                      "#FFFFFF", "#0C1011",
+                      "#FFFFFF", "#0C1011",
+                      "#FFFFFF", "#0C1011")) +
   scale_y_continuous(labels = function(x) paste0(x, "%"),
                      breaks = seq(0, 100, by = 20)) +  # Set breaks at every 20%
   labs(x = "Age Group", y = "Percentage of Participants", fill = "Vital Status") +
@@ -504,12 +469,159 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-4_mortality_pct_by_age
        gg.mortality_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 2-1 and 2-2: Age Distributions by Sex and Depression Level at Year 1
+```{r Plot Figure 1-5 (Final Analytic Sample)}
+# Ensure 'age_at_injury' is numeric and create age groups in the same mutate call
+analytic_data_final <- analytic_data_final |>
+  mutate(age_at_injury = as.numeric(as.character(age_at_injury)),
+         age_group = cut(age_at_injury, breaks = seq(16, 99, by = 10),
+                         right = FALSE, include.lowest = TRUE,
+                         labels = paste(seq(16, 89, by = 10),
+                                        seq(25, 99, by = 10), sep = "-")),
+         depression_level_at_year_1 = factor(depression_level_at_year_1, levels = c("No Depression", "Minor Depression", "Major Depression")))
+
+# Prepare the data for plotting
+mortality_plot_pct_data <- analytic_data_final |>
+  drop_na(event_status) |>
+  count(age_group, event_status) |>
+  group_by(age_group) |>
+  mutate(pct = n / sum(n) * 100)
+
+# Create the plot
+gg.mortality_pct <- ggplot(mortality_plot_pct_data,
+                           aes(x = age_group,
+                               y = pct,
+                               fill = event_status)) +
+  geom_bar(stat = "identity", position = position_dodge(), color = "#263238", linewidth = 0.75) +  # Position percentage bars side-by-side
+  scale_fill_manual(values = c("Censored" = "#CFD8DC",
+                               "Expired" = "#37474F")) +
+  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar
+            position = position_dodge(width = 0.9),
+            family = "Proxima Nova",
+            fontface = "bold",
+            size = 1.75,
+            color = c("#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#FFFFFF")) +
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 20%
+  labs(x = "Age Group", y = "Percentage of Participants", fill = "Vital Status") +
+  theme_classic() +
+  customization +
+  theme(
+    legend.position = "right",
+    legend.justification = "right",
+    legend.box.just = "right"
+  )
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-5_mortality_pct_by_age_group_final_analytic_sample.png"),
+       gg.mortality_pct, bg = "#FFFFFF", dpi = 300)
+```
+
+```{r Plot Figure 1-5 (Complete-Case Sample)}
+# Ensure 'age_at_injury' is numeric and create age groups in the same mutate call
+complete_cases_select <- complete_cases_select |>
+  mutate(age_at_injury = as.numeric(as.character(age_at_injury)),
+         age_group = cut(age_at_injury, breaks = seq(16, 96, by = 10),
+                         right = FALSE, include.lowest = TRUE,
+                         labels = paste(seq(16, 86, by = 10),
+                                        seq(25, 95, by = 10), sep = "-")),
+         depression_level_at_year_1 = factor(depression_level_at_year_1, levels = c("No Depression", "Minor Depression", "Major Depression")))
+
+# Prepare the data for plotting by calculating percentages
+mortality_plot_pct_data <- complete_cases_select |>
+  drop_na(event_status) |>
+  count(age_group, event_status) |>
+  group_by(age_group) |>
+  mutate(pct = n / sum(n) * 100)
+
+# Create the plot
+gg.mortality_pct <- ggplot(mortality_plot_pct_data,
+                           aes(x = age_group,
+                               y = pct,
+                               fill = event_status)) +
+  geom_bar(stat = "identity", position = position_dodge(), color = "#263238", linewidth = 0.75) +  # Position percentage bars side-by-side
+  scale_fill_manual(values = c("Censored" = "#CFD8DC",
+                               "Expired" = "#37474F")) +
+  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar
+            position = position_dodge(width = 0.9),
+            family = "Proxima Nova",
+            fontface = "bold",
+            size = 2,
+            color = c("#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF",
+                      "#0C1011", "#FFFFFF")) +
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 20%
+  labs(x = "Age Group", y = "Percentage of Participants", fill = "Vital Status") +
+  theme_classic() +
+  customization +
+  theme(
+    legend.position = "right",
+    legend.justification = "right",
+    legend.box.just = "right"
+  )
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_1-5_mortality_pct_by_age_group_complete_case_sample.png"),
+       gg.mortality_pct, bg = "#FFFFFF", dpi = 300)
+```
+
+### Figures 2-0, 2-1, and 2-2: Age Distributions of Overall Sample and by Sex and Depression Level at Year 1
+
+```{r Plot Figure 2-0 (Final Analytic Sample)}
+# Prepare the data for plotting
+age_data <- analytic_data_final |>
+  drop_na(age_at_injury)
+
+gg.age_distribution <- ggplot(age_data, 
+                              aes(x = age_at_injury)) +
+  # geom_density(alpha = 0.8, size = 0.75) +
+  geom_histogram(binwidth = 5.5, fill = "#37474F", color = "#263238", alpha = 0.8, linewidth = 1) +
+  scale_x_continuous(breaks = seq(15, 100, by = 10)) +  # Custom x-axis tick marks
+  labs(x = "Age at Injury", y = "Frequency", title = "Distribution of Age at Injury") +
+  theme_classic() + 
+  customization
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-0_age_distribution_final_analytic_sample.png"),
+       gg.age_distribution, dpi = 300)
+```
+
+```{r Plot Figure 2-0 (Complete-Case Sample)}
+# Prepare the data for plotting
+age_data <- complete_cases_select |>
+  drop_na(age_at_injury)
+
+gg.age_distribution <- ggplot(age_data, 
+                              aes(x = age_at_injury)) +
+  # geom_density(alpha = 0.8, size = 0.75) +
+  geom_histogram(binwidth = 5.5, fill = "#37474F", color = "#263238", alpha = 0.8, linewidth = 1) +
+  scale_x_continuous(breaks = seq(15, 100, by = 10)) +  # Custom x-axis tick marks
+  labs(x = "Age at Injury", y = "Frequency", title = "Distribution of Age at Injury") +
+  theme_classic() + 
+  customization
+
+# Save the plot
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-0_age_distribution_complete_case_sample.png"),
+       gg.age_distribution, dpi = 300)
+```
 
 ```{r Plot Figure 2-1 (Final Analytic Sample)}
 # Plot of age distribution by sex
-# Prepare the data for plotting (using the entire dataset, not just the final observation)
-age_by_sex_plot_data <- analytic_data_imputed |>
+# Prepare the data for plotting
+age_by_sex_plot_data <- analytic_data_final |>
   drop_na(age_at_injury, sex)
 
 # Step 2: Create the age distribution by sex plot
@@ -540,7 +652,7 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-1_age_distribution_by_
 ```{r Plot Figure 2-1 (Complete-Case Sample)}
 # Plot of age distribution by sex
 # Prepare the data for plotting (using the entire dataset, not just the final observation)
-age_by_sex_plot_data <- complete_cases_all |>
+age_by_sex_plot_data <- complete_cases_select |>
   drop_na(age_at_injury, sex)
 
 # Step 2: Create the age distribution by sex plot
@@ -571,9 +683,8 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-1_age_distribution_by_
 ```{r Plot Figure 2-2 (Final Analytic Sample)}
 # Plot of age distribution by vital status
 # Prepare the data for plotting (using the entire dataset, not just the final observation)
-age_by_vital_status_plot_data <- analytic_data_imputed |>
-  drop_na(age_at_injury, event_status) |>
-  mutate(event_status = as.factor(event_status)) # Convert event_status to a factor
+age_by_vital_status_plot_data <- analytic_data_final |>
+  drop_na(age_at_injury, event_status)
 
 # Step 2: Create the age distribution by sex plot
 gg.age_distribution_by_vital_status <- ggplot(age_by_vital_status_plot_data,
@@ -581,12 +692,10 @@ gg.age_distribution_by_vital_status <- ggplot(age_by_vital_status_plot_data,
                                                   fill = event_status,
                                                   color = event_status,
                                                   group = event_status)) +
-  geom_density(alpha = 0.8, linewidth = 0.75) +
-  scale_fill_manual(values = c("0" = "#CFD8DC", "1" = "#37474F"),
-                    labels = c("0" = "Censored", "1" = "Expired"),
+  geom_density(alpha = 0.8, size = 0.75) +
+  scale_fill_manual(values = c("Censored" = "#CFD8DC", "Expired" = "#37474F"),
                     name = "Vital Status") +
-  scale_color_manual(values = c("0" = "#91979a", "1" = "#273237"),
-                     labels = c("0" = "Censored", "1" = "Expired"),
+  scale_color_manual(values = c("Censored" = "#91979a", "Expired" = "#273237"),
                      name = "Vital Status") +  # Specify border colors
   scale_x_continuous(breaks = seq(15, 100, by = 10)) +  # Custom x-axis tick marks
   xlab("Age at Injury (years)") +
@@ -607,10 +716,8 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-2_age_distribution_by_
 
 ```{r Plot Figure 2-2 (Complete-Case Sample)}
 # Plot of age distribution by vital status
-# Prepare the data for plotting (using the entire dataset, not just the final observation)
-age_by_vital_status_plot_data <- complete_cases_all |>
-  drop_na(age_at_injury, event_status) |>
-  mutate(event_status = as.factor(event_status)) # Convert event_status to a factor
+age_by_vital_status_plot_data <- complete_cases_select |>
+  drop_na(age_at_injury, event_status)
 
 # Step 2: Create the age distribution by sex plot
 gg.age_distribution_by_vital_status <- ggplot(age_by_vital_status_plot_data,
@@ -618,12 +725,10 @@ gg.age_distribution_by_vital_status <- ggplot(age_by_vital_status_plot_data,
                                                   fill = event_status,
                                                   color = event_status,
                                                   group = event_status)) +
-  geom_density(alpha = 0.8, linewidth = 0.75) +
-  scale_fill_manual(values = c("0" = "#CFD8DC", "1" = "#37474F"),
-                    labels = c("0" = "Censored", "1" = "Expired"),
+  geom_density(alpha = 0.8, size = 0.75) +
+  scale_fill_manual(values = c("Censored" = "#CFD8DC", "Expired" = "#37474F"),
                     name = "Vital Status") +
-  scale_color_manual(values = c("0" = "#91979a", "1" = "#273237"),
-                     labels = c("0" = "Censored", "1" = "Expired"),
+  scale_color_manual(values = c("Censored" = "#91979a", "Expired" = "#273237"),
                      name = "Vital Status") +  # Specify border colors
   scale_x_continuous(breaks = seq(15, 100, by = 10)) +  # Custom x-axis tick marks
   xlab("Age at Injury (years)") +
@@ -644,7 +749,7 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-2_age_distribution_by_
 
 ```{r Plot Figure 2-3 (Final Analytic Sample)}
 # Create the age distribution by depression plot
-gg.age_distribution_by_depression <- ggplot(analytic_data_imputed,
+gg.age_at_injury_by_depression <- ggplot(analytic_data_final,
                                             aes(
                                               x = age_at_injury, 
                                               y = depression_level_at_year_1,
@@ -652,8 +757,8 @@ gg.age_distribution_by_depression <- ggplot(analytic_data_imputed,
                                               color = depression_level_at_year_1)) +
   geom_density_ridges(linetype = 1,
                       linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
+  scale_fill_manual(values = c("#CFD8DC", "#546E7A", "#37474F"), name = "Depression Level at Year 1") +
+  scale_color_manual(values = c("#91979a", "#324249", "#273237"), name = "Depression Level at Year 1") +
   labs(x = "Age at Injury (years)",
        y = "Distribution Density",
        fill = "Depression Level") +
@@ -665,13 +770,13 @@ gg.age_distribution_by_depression <- ggplot(analytic_data_imputed,
         plot.background = element_rect(fill = "#FFFFFF", color = NA),
         legend.position = "right")
 
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-3_age_distribution_by_depression_final_analytic_sample.png"),
-       gg.age_distribution_by_depression, dpi = 300)
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-3_age_at_injury_by_depression_final_analytic_sample.png"),
+       gg.age_at_injury_by_depression, dpi = 300)
 ```
 
 ```{r Plot Figure 2-3 (Complete-Case Sample)}
-# Create the age distribution by depression plot
-gg.age_distribution_by_depression <- ggplot(complete_cases_all,
+# Create age distribution by depression level plot
+gg.age_at_injury_by_depression <- ggplot(complete_cases_select,
                                             aes(
                                               x = age_at_injury, 
                                               y = depression_level_at_year_1,
@@ -679,8 +784,8 @@ gg.age_distribution_by_depression <- ggplot(complete_cases_all,
                                               color = depression_level_at_year_1)) +
   geom_density_ridges(linetype = 1,
                       linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
+  scale_fill_manual(values = c("#CFD8DC", "#546E7A", "#37474F"), name = "Depression Level at Year 1") +
+  scale_color_manual(values = c("#91979a", "#324249", "#273237"), name = "Depression Level at Year 1") +
   labs(x = "Age at Injury (years)",
        y = "Distribution Density",
        fill = "Depression Level") +
@@ -692,13 +797,13 @@ gg.age_distribution_by_depression <- ggplot(complete_cases_all,
         plot.background = element_rect(fill = "#FFFFFF", color = NA),
         legend.position = "right")
 
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-3_age_distribution_by_depression_complete_case_sample.png"),
-       gg.age_distribution_by_depression, dpi = 300)
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-3_age_at_injury_by_depression_complete_case_sample.png"),
+       gg.age_at_injury_by_depression, dpi = 300)
 ```
 
 ```{r Plot Figure 2-4 (Final Analytic Sample)}
-# Create the age distribution by depression plot
-figure_2_4 <- ggplot(analytic_data_final,
+# Create age distribution by depression level plot
+gg.age_at_expiration_by_depression <- ggplot(analytic_data_final,
                                             aes(
                                               x = age_at_expiration, 
                                               y = depression_level_at_year_1,
@@ -706,42 +811,8 @@ figure_2_4 <- ggplot(analytic_data_final,
                                               color = depression_level_at_year_1)) +
   geom_density_ridges(linetype = 1,
                       linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
-  labs(x = "Age at Expiration (years)",
-       y = "Distribution Density",
-       fill = "Depression Level") +
-  scale_x_continuous(breaks = seq(15, 100, by = 10)) +
-  theme_ridges() +
-  customization 
-  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
-        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
-        plot.background = element_rect(fill = "#FFFFFF", color = NA),
-        legend.position = "right")
-
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-4_age_at_expiration_distribution_by_depression_final_analytic_sample.png"),
-       figure_2_4, dpi = 300, bg = "white")
-```
-
-```{r Plot Figure 2-4 (Complete-Case Sample)}
-# Append 'age_at_expiration' to the complete-case data frame
-complete_cases_all <- complete_cases_all |>
-  left_join(
-    analytic_data_final |> select(id, age_at_expiration), # Select relevant columns
-    by = "id" # Specify the common identifiers
-  )
-
-# Create the age at expiration distribution by depression plot
-figure_2_4_2 <- ggplot(complete_cases_all,
-                       aes(
-                         x = age_at_expiration, 
-                         y = depression_level_at_year_1,
-                         fill = depression_level_at_year_1,
-                         color = depression_level_at_year_1)) +
-  geom_density_ridges(linetype = 1,
-                      linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
+  scale_fill_manual(values = c("#CFD8DC", "#546E7A", "#37474F"), name = "Depression Level at Year 1") +
+  scale_color_manual(values = c("#91979a", "#324249", "#273237"), name = "Depression Level at Year 1") +
   labs(x = "Age at Expiration (years)",
        y = "Distribution Density",
        fill = "Depression Level") +
@@ -753,27 +824,55 @@ figure_2_4_2 <- ggplot(complete_cases_all,
         plot.background = element_rect(fill = "#FFFFFF", color = NA),
         legend.position = "right")
 
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-4_2_age_at_expiration_distribution_by_depression_complete_case_sample.png"),
-       figure_2_4_2, dpi = 300)
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-4_age_at_expiration_by_depression_final_analytic_sample.png"),
+       gg.age_at_expiration_by_depression, dpi = 300)
 ```
 
+```{r Plot Figure 2-4 (Complete-Case Sample)}
+# Perform a left join to append age_at_expiration from analytic_data_final
+complete_cases_select <- complete_cases_select |>
+  left_join(analytic_data_final |>
+              select(id, age_at_expiration), by = "id")
+
+# Create age distribution by depression level plot
+gg.age_at_expiration_by_depression <- ggplot(complete_cases_select,
+                                            aes(
+                                              x = age_at_expiration, 
+                                              y = depression_level_at_year_1,
+                                              fill = depression_level_at_year_1,
+                                              color = depression_level_at_year_1)) +
+  geom_density_ridges(linetype = 1,
+                      linewidth = 0.75) +
+  scale_fill_manual(values = c("#CFD8DC", "#546E7A", "#37474F"), name = "Depression Level at Year 1") +
+  scale_color_manual(values = c("#91979a", "#324249", "#273237"), name = "Depression Level at Year 1") +
+  labs(x = "Age at Expiration (years)",
+       y = "Distribution Density",
+       fill = "Depression Level") +
+  scale_x_continuous(breaks = seq(15, 100, by = 10)) +
+  theme_ridges() +
+  customization +
+  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
+        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
+        plot.background = element_rect(fill = "#FFFFFF", color = NA),
+        legend.position = "right")
+
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_2-4_age_at_expiration_by_depression_complete_case_sample.png"),
+       gg.age_at_expiration_by_depression, dpi = 300)
+```
 
 ### Figure 3-1: Educational Attainment at Injury by Depression Level at Year 1
 
 ```{r Plot Figure 3-1 (Final Analytic Sample)}
 # Create the education distribution by depression plot
-gg.education_by_depression <- ggplot(analytic_data_imputed,
+gg.education_by_depression <- ggplot(analytic_data_final,
                                      aes(x = education_level_at_injury,
                                          y = depression_level_at_year_1,
                                          fill = depression_level_at_year_1,
                                          color = depression_level_at_year_1)) +
   geom_density_ridges(linetype = 1,
                       linewidth = 0.75) +
-  # scale_fill_manual(values = c("No Depression" = "#FFE082",
-  #                              "Minor Depression" = "#FF8F00",
-  #                              "Major Depression" = "#EF5350")) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
+  scale_fill_manual(values = c("#CFD8DC", "#546E7A", "#37474F"), name = "Depression Level at Year 1") +
+  scale_color_manual(values = c("#91979a", "#324249", "#273237"), name = "Depression Level at Year 1") +
   labs(x = "Educational Attainment at Injury (years)",
        y = "Distribution Density",
        fill = "Depression Level") +
@@ -791,18 +890,15 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_3-1_education_distributi
 
 ```{r Plot Figure 3-1 (Complete-Case Sample)}
 # Create the education distribution by depression plot
-gg.education_by_depression <- ggplot(complete_cases_all,
+gg.education_by_depression <- ggplot(complete_cases_select,
                                      aes(x = education_level_at_injury,
                                          y = depression_level_at_year_1,
                                          fill = depression_level_at_year_1,
                                          color = depression_level_at_year_1)) +
   geom_density_ridges(linetype = 1,
                       linewidth = 0.75) +
-  # scale_fill_manual(values = c("No Depression" = "#FFE082",
-  #                              "Minor Depression" = "#FF8F00",
-  #                              "Major Depression" = "#EF5350")) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
+  scale_fill_manual(values = c("#CFD8DC", "#546E7A", "#37474F"), name = "Depression Level at Year 1") +
+  scale_color_manual(values = c("#91979a", "#324249", "#273237"), name = "Depression Level at Year 1") +
   labs(x = "Educational Attainment at Injury (years)",
        y = "Distribution Density",
        fill = "Depression Level") +
@@ -818,586 +914,9 @@ ggsave(here(univariate_and_bivariate_plots_dir, "figure_3-1_education_distributi
        gg.education_by_depression, dpi = 300)
 ```
 
-### Figures 4-1 and 4-2: Counts and Percentages of Employment Status at Injury by Depression Level at Year 1
+### Figures 4-1 and 4-2: Counts and Percentages of Medicaid Status by Depression Level at Year 1
 
 ```{r Plot Figure 4-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(employment_at_injury = factor(employment_at_injury, 
-                                              levels = c("Competitively Employed", 
-                                                         "Unemployed", 
-                                                         "Student", 
-                                                         "Retired", 
-                                                         "Other")))
-# Create the counts plot
-# Filter out NA values in 'employment_at_injury'
-employment_by_depression_data <- analytic_data_final |>
-  drop_na(employment_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_employment_at_injury <- employment_by_depression_data |>
-  count(depression_level_at_year_1, employment_at_injury)
-
-# Create the employment status by depression level plot
-gg.employment_by_depression <- ggplot(employment_by_depression_data,
-                                      aes(x = depression_level_at_year_1,
-                                          fill = employment_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Competitively Employed" = "#CFD8DC", 
-                               "Unemployed" = "#B0BEC5", 
-                               "Student" = "#90A4AE", 
-                               "Retired" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_employment_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.5,
-            color = c("#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Employment Status at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1000, by = 250)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-1_employment_by_depression_final_analytic_sample.png"),
-       gg.employment_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 4-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(employment_at_injury = factor(employment_at_injury, 
-                                              levels = c("Competitively Employed", 
-                                                         "Unemployed", 
-                                                         "Student", 
-                                                         "Retired", 
-                                                         "Other")))
-
-# Create the counts plot
-# Filter out NA values in 'employment_at_injury'
-employment_by_depression_data <- complete_cases_all |>
-  drop_na(employment_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_employment_at_injury <- employment_by_depression_data |>
-  count(depression_level_at_year_1, employment_at_injury)
-
-# Create the employment status by depression level plot
-gg.employment_by_depression <- ggplot(employment_by_depression_data,
-                                      aes(x = depression_level_at_year_1,
-                                          fill = employment_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Competitively Employed" = "#CFD8DC", 
-                               "Unemployed" = "#B0BEC5", 
-                               "Student" = "#90A4AE", 
-                               "Retired" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_employment_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.5,
-            color = c("#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Employment Status at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 500, by = 50)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-1_employment_by_depression_complete_case_sample.png"),
-       gg.employment_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 4-2 (Final Analytic Sample)}
-# Create the percentages plot
-# Filter out NA values in 'employment_at_injury' and calculate percentages
-employment_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(employment_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, employment_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.employment_by_depression_pct <- ggplot(employment_by_depression_pct_data, aes(x = depression_level_at_year_1,
-                                                                                 y = pct,
-                                                                                 fill = employment_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Competitively Employed" = "#CFD8DC", 
-                               "Unemployed" = "#B0BEC5", 
-                               "Student" = "#90A4AE", 
-                               "Retired" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.5,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Employment Status at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-2_employment_by_depression_pct_final_analytic_sample.png"),
-       gg.employment_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 4-2 (Complete-Case Sample)}
-# Create the percentages plot
-# Filter out NA values in 'employment_at_injury' and calculate percentages
-employment_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(employment_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, employment_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.employment_by_depression_pct <- ggplot(employment_by_depression_pct_data, aes(x = depression_level_at_year_1,
-                                                                                 y = pct,
-                                                                                 fill = employment_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Competitively Employed" = "#CFD8DC", 
-                               "Unemployed" = "#B0BEC5", 
-                               "Student" = "#90A4AE", 
-                               "Retired" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.5,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Employment Status at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-2_employment_by_depression_pct_complete_case_sample.png"),
-       gg.employment_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 5-1 and 5-2: Counts and Percentages of Marital Status at Injury by Depression Level at Year 1
-
-```{r Plot Figure 5-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(marital_status_at_injury = factor(marital_status_at_injury, 
-                                           levels = c("Single", 
-                                                      "Married", 
-                                                      "Divorced",
-                                                      "Other")))
-# Create the counts plot
-# Filter out NA values in 'marital_status_at_injury' to display counts
-marital_status_by_depression_data <- analytic_data_final |> 
-  drop_na(marital_status_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_marital_status_at_injury <- marital_status_by_depression_data |>
-  count(depression_level_at_year_1, marital_status_at_injury)
-
-# Create the marital status by depression level plot
-gg.marital_status_by_depression <- ggplot(marital_status_by_depression_data,
-                                          aes(x = depression_level_at_year_1,
-                                              fill = marital_status_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Single" = "#CFD8DC", 
-                               "Married" = "#90A4AE", 
-                               "Divorced" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_marital_status_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#FFFFFF", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Marital Status at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1000, by = 150)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_5-1_marital_status_by_depression_final_analytic_sample.png"),
-       gg.marital_status_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 5-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(marital_status_at_injury = factor(marital_status_at_injury, 
-                                           levels = c("Single", 
-                                                      "Married", 
-                                                      "Divorced",
-                                                      "Other")))
-
-# Create the counts plot
-# Filter out NA values in 'marital_status_at_injury' to display counts
-marital_status_by_depression_data <- complete_cases_all |> 
-  drop_na(marital_status_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_marital_status_at_injury <- marital_status_by_depression_data |>
-  count(depression_level_at_year_1, marital_status_at_injury)
-
-# Create the marital status by depression level plot
-gg.marital_status_by_depression <- ggplot(marital_status_by_depression_data,
-                                          aes(x = depression_level_at_year_1,
-                                              fill = marital_status_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Single" = "#CFD8DC", 
-                               "Married" = "#90A4AE", 
-                               "Divorced" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_marital_status_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Marital Status at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 300, by = 50)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_5-1_marital_status_by_depression_complete_case_sample.png"),
-       gg.marital_status_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 5-2 (Final Analytic Sample)}
-# Create the percentages plot
-# Filter out NA values in 'marital_status_at_injury' and calculate percentages
-marital_status_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(marital_status_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, marital_status_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.marital_status_by_depression_pct <- ggplot(marital_status_by_depression_pct_data,
-                                              aes(x = depression_level_at_year_1,
-                                                  y = pct,
-                                                  fill = marital_status_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Single" = "#CFD8DC", 
-                               "Married" = "#90A4AE", 
-                               "Divorced" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Marital Status at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 15%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_5-2_marital_status_by_depression_pct_final_analytic_sample.png"),
-       gg.marital_status_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 5-2 (Complete-Case Sample)}
-# Create the percentages plot
-# Filter out NA values in 'marital_status_at_injury' and calculate percentages
-marital_status_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(marital_status_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, marital_status_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.marital_status_by_depression_pct <- ggplot(marital_status_by_depression_pct_data,
-                                              aes(x = depression_level_at_year_1,
-                                                  y = pct,
-                                                  fill = marital_status_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", size = 0.75) +
-  scale_fill_manual(values = c("Single" = "#CFD8DC", 
-                               "Married" = "#90A4AE", 
-                               "Divorced" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Marital Status at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_5-2_marital_status_by_depression_pct_complete_case_sample.png"),
-       gg.marital_status_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 6-1 and 6-2: Counts and Percentages of Primary Rehabilitation Payor by Depression Level at Year 1
-
-```{r Plot Figure 6-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(rehab_payor_primary = factor(rehab_payor_primary, 
-                                      levels = c("Private Insurance", 
-                                                 "Public Insurance",
-                                                 "Other")))
-
-# Create the counts plot
-# Filter out NA values in 'rehab_payor_primary' to display counts
-rehab_payor_by_depression_data <- analytic_data_final |> 
-  drop_na(rehab_payor_primary)
-
-# Calculate the counts for each depression level group
-count_data_rehab_payor <- rehab_payor_by_depression_data |>
-  count(depression_level_at_year_1, rehab_payor_primary)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.rehab_payor_by_depression <- ggplot(rehab_payor_by_depression_data,
-                                       aes(x = depression_level_at_year_1,
-                                           fill = rehab_payor_primary)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Private Insurance" = "#CFD8DC", 
-                               "Public Insurance" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_rehab_payor,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Primary Rehabilitation Payor") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1000, by = 250)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-1_rehab_payor_by_depression_final_analytic_sample.png"),
-       gg.rehab_payor_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 6-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(rehab_payor_primary = factor(rehab_payor_primary, 
-                                      levels = c("Private Insurance", 
-                                                 "Public Insurance",
-                                                 "Other")))
-
-# Create the counts plot
-# Filter out NA values in 'rehab_payor_primary' to display counts
-rehab_payor_by_depression_data <- complete_cases_all |> 
-  drop_na(rehab_payor_primary)
-
-# Calculate the counts for each depression level group
-count_data_rehab_payor <- rehab_payor_by_depression_data |>
-  count(depression_level_at_year_1, rehab_payor_primary)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.rehab_payor_by_depression <- ggplot(rehab_payor_by_depression_data,
-                                       aes(x = depression_level_at_year_1,
-                                           fill = rehab_payor_primary)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Private Insurance" = "#CFD8DC", 
-                               "Public Insurance" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_rehab_payor,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Primary Rehabilitation Payor") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 500, by = 100)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-1_rehab_payor_by_depression_complete_case_sample.png"),
-       gg.rehab_payor_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 6-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(rehab_payor_primary = factor(rehab_payor_primary, 
-                                      levels = c("Private Insurance", 
-                                                 "Public Insurance",
-                                                 "Other")))
-
-# Create the percentages plot
-# Filter out NA values in 'rehab_payor_primary' and calculate percentages
-rehab_payor_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(rehab_payor_primary, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, rehab_payor_primary) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.rehab_payor_by_depression_pct <- ggplot(rehab_payor_by_depression_pct_data, 
-                                           aes(x = depression_level_at_year_1,
-                                               y = pct,
-                                               fill = rehab_payor_primary)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Private Insurance" = "#CFD8DC", 
-                               "Public Insurance" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Primary Rehabilitation Payor") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-2_rehab_payor_by_depression_pct_final_analytic_sample.png"),
-       gg.rehab_payor_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 6-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(rehab_payor_primary = factor(rehab_payor_primary, 
-                                      levels = c("Private Insurance", 
-                                                 "Public Insurance",
-                                                 "Other")))
-
-# Create the percentages plot
-# Filter out NA values in 'rehab_payor_primary' and calculate percentages
-rehab_payor_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(rehab_payor_primary, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, rehab_payor_primary) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the primary rehabilitation payor by depression level plot
-gg.rehab_payor_by_depression_pct <- ggplot(rehab_payor_by_depression_pct_data, 
-                                           aes(x = depression_level_at_year_1,
-                                               y = pct,
-                                               fill = rehab_payor_primary)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Private Insurance" = "#CFD8DC", 
-                               "Public Insurance" = "#546E7A", 
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Primary Rehabilitation Payor") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-2_rehab_payor_by_depression_pct_complete_case_sample.png"),
-       gg.rehab_payor_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 7-1 and 7-2: Counts and Percentages of Medicaid Status by Depression Level at Year 1
-
-```{r Plot Figure 7-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(rehab_payor_primary_type = factor(rehab_payor_primary_type, 
@@ -1440,20 +959,20 @@ gg.medicaid_status_by_depression <- ggplot(medicaid_status_by_depression_data,
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-1_medicaid_status_by_depression_final_analytic_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-1_medicaid_status_by_depression_final_analytic_sample.png"),
        gg.medicaid_status_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 7-1 (Complete-Case Sample)}
+```{r Plot Figure 4-1 (Complete-Case Sample)}
 # Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(rehab_payor_primary_type = factor(rehab_payor_primary_type, 
                                            levels = c("Non-Medicaid", 
                                                       "Medicaid")))
 
 # Create the counts plot
 # Filter out NA values in 'rehab_payor_primary_type' to display counts
-medicaid_status_by_depression_data <- complete_cases_all |> 
+medicaid_status_by_depression_data <- complete_cases_select |> 
   drop_na(rehab_payor_primary_type)
 
 # Calculate the counts for each depression level group
@@ -1486,11 +1005,11 @@ gg.medicaid_status_by_depression <- ggplot(medicaid_status_by_depression_data,
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-1_medicaid_status_by_depression_complete_case_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-1_medicaid_status_by_depression_complete_case_sample.png"),
        gg.medicaid_status_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 7-2 (Final Analytic Sample)}
+```{r Plot Figure 4-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(rehab_payor_primary_type = factor(rehab_payor_primary_type, 
@@ -1533,20 +1052,20 @@ gg.medicaid_status_by_depression_pct <- ggplot(medicaid_status_by_depression_pct
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-2_medicaid_status_by_depression_pct_final_analytic_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-2_medicaid_status_by_depression_pct_final_analytic_sample.png"),
        gg.medicaid_status_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 7-2 (Complete-Case Sample)}
+```{r Plot Figure 4-2 (Complete-Case Sample)}
 # Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(rehab_payor_primary_type = factor(rehab_payor_primary_type, 
                                            levels = c("Non-Medicaid", 
                                                       "Medicaid")))
 
 # Create the percentages plot
 # Filter out NA values in 'rehab_payor_primary_type' and calculate percentages
-medicaid_status_by_depression_pct_data <- complete_cases_all |> 
+medicaid_status_by_depression_pct_data <- complete_cases_select |> 
   drop_na(rehab_payor_primary_type, depression_level_at_year_1) |>
   count(depression_level_at_year_1, rehab_payor_primary_type) |> 
   group_by(depression_level_at_year_1) |>
@@ -1580,691 +1099,13 @@ gg.medicaid_status_by_depression_pct <- ggplot(medicaid_status_by_depression_pct
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-2_medicaid_status_by_depression_pct_complete_case_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_4-2_medicaid_status_by_depression_pct_complete_case_sample.png"),
        gg.medicaid_status_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 8-1 and 8-2: Counts and Percentages of Mechanism of Injury by Year 1 Depression Level
+### Figures 5-1 and 5-2: Counts and Percentages of History of Mental Health Treatment by Year 1 Depression Level
 
-```{r Plot Figure 8-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(cause_of_injury = factor(cause_of_injury, 
-                                  levels = c("Vehicular", 
-                                             "Falls",
-                                             "Violence",
-                                             "Other")))
-
-# Create the counts plot
-# Filter out NA values in 'cause_of_injury' to display counts
-cause_of_injury_by_depression_data <- analytic_data_final |> 
-  drop_na(cause_of_injury)
-
-# Calculate the counts for each depression level group
-count_data_cause_of_injury <- cause_of_injury_by_depression_data |>
-  count(depression_level_at_year_1, cause_of_injury)
-
-# Create the mechanism of injury by depression level counts plot
-gg.cause_of_injury_by_depression <- ggplot(cause_of_injury_by_depression_data,
-                                           aes(x = depression_level_at_year_1,
-                                               fill = cause_of_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Vehicular" = "#CFD8DC", 
-                               "Falls" = "#90A4AE",
-                               "Violence" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_cause_of_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Mechanism of Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1000, by = 150)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_8-1_cause_of_injury_by_depression_final_analytic_sample.png"),
-       gg.cause_of_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 8-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(cause_of_injury = factor(cause_of_injury, 
-                                  levels = c("Vehicular", 
-                                             "Falls",
-                                             "Violence",
-                                             "Other")))
-
-# Create the counts plot
-# Filter out NA values in 'cause_of_injury' to display counts
-cause_of_injury_by_depression_data <- complete_cases_all |> 
-  drop_na(cause_of_injury)
-
-# Calculate the counts for each depression level group
-count_data_cause_of_injury <- cause_of_injury_by_depression_data |>
-  count(depression_level_at_year_1, cause_of_injury)
-
-# Create the mechanism of injury by depression level counts plot
-gg.cause_of_injury_by_depression <- ggplot(cause_of_injury_by_depression_data,
-                                           aes(x = depression_level_at_year_1,
-                                               fill = cause_of_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Vehicular" = "#CFD8DC", 
-                               "Falls" = "#90A4AE",
-                               "Violence" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(data = count_data_cause_of_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Mechanism of Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 400, by = 100)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_8-1_cause_of_injury_by_depression_complete_case_sample.png"),
-       gg.cause_of_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 8-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(cause_of_injury = factor(cause_of_injury, 
-                                  levels = c("Vehicular", 
-                                             "Falls",
-                                             "Violence",
-                                             "Other")))
-
-# Create the percentages plot
-# Filter out NA values in 'cause_of_injury' and calculate percentages
-cause_of_injury_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(cause_of_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, cause_of_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.cause_of_injury_by_depression_pct <- ggplot(cause_of_injury_by_depression_pct_data,
-                                               aes(x = depression_level_at_year_1,
-                                                   y = pct,
-                                                   fill = cause_of_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Vehicular" = "#CFD8DC", 
-                               "Falls" = "#90A4AE",
-                               "Violence" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Mechanism of Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_8-2_cause_of_injury_by_depression_pct_final_analytic_sample.png"),
-       gg.cause_of_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 8-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(cause_of_injury = factor(cause_of_injury, 
-                                  levels = c("Vehicular", 
-                                             "Falls",
-                                             "Violence",
-                                             "Other")))
-
-# Create the percentages plot
-# Filter out NA values in 'cause_of_injury' and calculate percentages
-cause_of_injury_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(cause_of_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, cause_of_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.cause_of_injury_by_depression_pct <- ggplot(cause_of_injury_by_depression_pct_data,
-                                               aes(x = depression_level_at_year_1,
-                                                   y = pct,
-                                                   fill = cause_of_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Vehicular" = "#CFD8DC", 
-                               "Falls" = "#90A4AE",
-                               "Violence" = "#546E7A",
-                               "Other" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Mechanism of Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_8-2_cause_of_injury_by_depression_pct_complete_case_sample.png"),
-       gg.cause_of_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 9-1: Distribution of Year 1 DRS Scores by Year 1 Depression Level
-
-```{r Plot Figure 9-1 (Final Analytic Sample)}
-# Filter out NA values in 'drs_total_at_year_1' to display counts
-drs_total_at_year_1_by_depression_data <- analytic_data_final |> 
-  mutate(drs_total_at_year_1 = as.numeric(drs_total_at_year_1)) |>
-  drop_na(drs_total_at_year_1)
-
-# Create the DRS total score distribution by Year 1 depression level plot
-gg.drs_distribution_by_depression <- ggplot(drs_total_at_year_1_by_depression_data,
-                                            aes(x = drs_total_at_year_1,
-                                                y = depression_level_at_year_1,
-                                                fill = depression_level_at_year_1,
-                                                color = depression_level_at_year_1)) +
-  geom_density_ridges(linetype = 1,
-                      linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
-  labs(x = "Total Disability Rating Scale Score",
-       y = "Distribution Density",
-       fill = "Depression Level") +
-  scale_x_continuous(breaks = seq(0, 30, by = 5)) +
-  theme_ridges() +  # Use the theme specifically designed for ridge plots
-  customization +
-  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
-        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
-        plot.background = element_rect(fill = "#FFFFFF", color = NA),  # Ensure white background
-        legend.position = "right")
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_9-1_drs_distribution_by_depression_final_analytic_sample.png"),
-       gg.drs_distribution_by_depression, dpi = 300)
-```
-
-```{r Plot Figure 9-1 (Complete-Case Sample)}
-# Filter out NA values in 'drs_total_at_year_1' to display counts
-drs_total_at_year_1_by_depression_data <- complete_cases_all |> 
-  mutate(drs_total_at_year_1 = as.numeric(drs_total_at_year_1)) |>
-  drop_na(drs_total_at_year_1)
-
-# Create the DRS total score distribution by Year 1 depression level plot
-gg.drs_distribution_by_depression <- ggplot(drs_total_at_year_1_by_depression_data,
-                                            aes(x = drs_total_at_year_1,
-                                                y = depression_level_at_year_1,
-                                                fill = depression_level_at_year_1,
-                                                color = depression_level_at_year_1)) +
-  geom_density_ridges(linetype = 1,
-                      linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
-  labs(x = "Total Disability Rating Scale Score",
-       y = "Distribution Density",
-       fill = "Depression Level") +
-  scale_x_continuous(breaks = seq(0, 30, by = 5)) +
-  theme_ridges() +  # Use the theme specifically designed for ridge plots
-  customization +
-  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
-        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
-        plot.background = element_rect(fill = "#FFFFFF", color = NA),  # Ensure white background
-        legend.position = "right")
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_9-1_drs_distribution_by_depression_complete_case_sample.png"),
-       gg.drs_distribution_by_depression, dpi = 300)
-```
-
-### Figures 10-1: Distribution of Year 1 FIM Total Scores by Year 1 Depression Level
-
-```{r Plot Figure 10-1 (Final Analytic Sample)}
-# Filter out NA values in 'fim_total_at_year_1' to display counts
-fim_total_at_year_1_by_depression_data <- analytic_data_final |> 
-  mutate(fim_total_at_year_1 = as.numeric(fim_total_at_year_1)) |>
-  drop_na(fim_total_at_year_1)
-
-# Create the DRS total score distribution by Year 1 depression level plot
-gg.fim_distribution_by_depression <- ggplot(fim_total_at_year_1_by_depression_data,
-                                            aes(x = fim_total_at_year_1, y = depression_level_at_year_1,
-                                                fill = depression_level_at_year_1,
-                                                color = depression_level_at_year_1)) +
-  geom_density_ridges(linetype = 1,
-                      linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
-  labs(x = "Total Functional Independence Measure Score",
-       y = "Distribution Density",
-       fill = "Depression Level") +
-  scale_x_continuous(breaks = seq(15, 135, by = 15)) +
-  theme_ridges() +
-  customization +
-  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
-        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
-        plot.background = element_rect(fill = "#FFFFFF", color = NA),
-        legend.position = "right")
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_10-1_fim_distribution_by_depression_final_analytic_sample.png"),
-       gg.fim_distribution_by_depression, dpi = 300)
-```
-
-```{r Plot Figure 10-1 (Final Analytic Sample)}
-# Filter out NA values in 'fim_total_at_year_1' to display counts
-fim_total_at_year_1_by_depression_data <- complete_cases_all |> 
-  mutate(fim_total_at_year_1 = as.numeric(fim_total_at_year_1)) |>
-  drop_na(fim_total_at_year_1)
-
-# Create the DRS total score distribution by Year 1 depression level plot
-gg.fim_distribution_by_depression <- ggplot(fim_total_at_year_1_by_depression_data,
-                                            aes(x = fim_total_at_year_1, y = depression_level_at_year_1,
-                                                fill = depression_level_at_year_1,
-                                                color = depression_level_at_year_1)) +
-  geom_density_ridges(linetype = 1,
-                      linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
-  labs(x = "Total Functional Independence Measure Score",
-       y = "Distribution Density",
-       fill = "Depression Level") +
-  scale_x_continuous(breaks = seq(15, 135, by = 15)) +
-  theme_ridges() +
-  customization +
-  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
-        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
-        plot.background = element_rect(fill = "#FFFFFF", color = NA),
-        legend.position = "right")
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_10-1_fim_distribution_by_depression_complete_case_sample.png"),
-       gg.fim_distribution_by_depression, dpi = 300)
-```
-
-### Figures 11-1 and 11-2: Distribution of Year 1 GOSE Scores by Year 1 Depression Level
-
-```{r Plot Figure 11-1 (Final Analytic Sample)}
-# Filter out NA values in 'gose_total_at_year_1' to display counts
-gose_total_at_year_1_by_depression_data <- analytic_data_final |> 
-  mutate(gose_total_at_year_1 = as.numeric(gose_total_at_year_1)) |>
-  drop_na(gose_total_at_year_1)
-
-# Create the DRS total score distribution by Year 1 depression level plot
-gg.gose_distribution_by_depression <- ggplot(gose_total_at_year_1_by_depression_data,
-                                            aes(x = gose_total_at_year_1, y = depression_level_at_year_1,
-                                                fill = depression_level_at_year_1,
-                                                color = depression_level_at_year_1)) +
-  geom_density_ridges(linetype = 1,
-                      linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
-  labs(x = "Total Glasgow Outcome Scale - Extended Score",
-       y = "Distribution Density",
-       fill = "Depression Level") +
-  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
-  theme_ridges() +
-  customization +
-  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
-        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
-        plot.background = element_rect(fill = "#FFFFFF", color = NA),
-        legend.position = "right")
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_11-1_gose_distribution_by_depression_final_analytic_sample.png"),
-       gg.gose_distribution_by_depression, dpi = 300)
-```
-
-```{r Plot Figure 11-1 (Final Analytic Sample)}
-# Filter out NA values in 'gose_total_at_year_1' to display counts
-gose_total_at_year_1_by_depression_data <- complete_cases_all |> 
-  mutate(gose_total_at_year_1 = as.numeric(gose_total_at_year_1)) |>
-  drop_na(gose_total_at_year_1)
-
-# Create the DRS total score distribution by Year 1 depression level plot
-gg.gose_distribution_by_depression <- ggplot(gose_total_at_year_1_by_depression_data,
-                                            aes(x = gose_total_at_year_1, y = depression_level_at_year_1,
-                                                fill = depression_level_at_year_1,
-                                                color = depression_level_at_year_1)) +
-  geom_density_ridges(linetype = 1,
-                      linewidth = 0.75) +
-  scale_fill_manual(values = c("#FFE082", "#FF8F00", "#EF5350"), name = "Depression Level at Year 1") +
-  scale_color_manual(values = c("#DEC370", "#DE7C00", "#B13B39"), name = "Depression Level at Year 1") +
-  labs(x = "Total Glasgow Outcome Scale - Extended Score",
-       y = "Distribution Density",
-       fill = "Depression Level") +
-  scale_x_continuous(breaks = seq(0, 10, by = 1)) +
-  theme_ridges() +
-  customization +
-  theme(axis.title.x = element_text(hjust = 0.5, vjust = 0.5),
-        axis.title.y = element_text(hjust = 0.5, vjust = 0.5),
-        plot.background = element_rect(fill = "#FFFFFF", color = NA),
-        legend.position = "right")
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_11-1_gose_distribution_by_depression_complete_case_sample.png"),
-       gg.gose_distribution_by_depression, dpi = 300)
-```
-
-### Figures 12-1 and 12-2: Counts and Percentages of History of Mental Health Treatment by Year 1 Depression Level
-
-```{r Plot Figure 12-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(mental_health_tx_lifetime_at_injury = factor(mental_health_tx_lifetime_at_injury, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Filter out NA values in 'mental_health_tx_lifetime_at_injury' to display counts
-mental_health_tx_lifetime_at_injury_by_depression_data <- analytic_data_final |> 
-  drop_na(mental_health_tx_lifetime_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_mental_health_tx_lifetime_at_injury <- mental_health_tx_lifetime_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, mental_health_tx_lifetime_at_injury)
-
-# Create the counts plot
-gg.mental_health_tx_lifetime_at_injury_by_depression <- ggplot(mental_health_tx_lifetime_at_injury_by_depression_data,
-                                                               aes(x = depression_level_at_year_1,
-                                                                   fill = mental_health_tx_lifetime_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_mental_health_tx_lifetime_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Lifetime History of Mental Health Treatment at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-1_mental_health_tx_lifetime_at_injury_by_depression_final_analytic_sample.png"),
-       gg.mental_health_tx_lifetime_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 12-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(mental_health_tx_lifetime_at_injury = factor(mental_health_tx_lifetime_at_injury, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Filter out NA values in 'mental_health_tx_lifetime_at_injury' to display counts
-mental_health_tx_lifetime_at_injury_by_depression_data <- complete_cases_all |> 
-  drop_na(mental_health_tx_lifetime_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_mental_health_tx_lifetime_at_injury <- mental_health_tx_lifetime_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, mental_health_tx_lifetime_at_injury)
-
-# Create the counts plot
-gg.mental_health_tx_lifetime_at_injury_by_depression <- ggplot(mental_health_tx_lifetime_at_injury_by_depression_data,
-                                                               aes(x = depression_level_at_year_1,
-                                                                   fill = mental_health_tx_lifetime_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_mental_health_tx_lifetime_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Lifetime History of Mental Health Treatment at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-1_mental_health_tx_lifetime_at_injury_by_depression_complete_case_sample.png"),
-       gg.mental_health_tx_lifetime_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 12-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(mental_health_tx_lifetime_at_injury = factor(mental_health_tx_lifetime_at_injury, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Filter out NA values in 'mental_health_tx_past_year_at_injury' to display counts
-mental_health_tx_past_year_at_injury_by_depression_data <- analytic_data_final |> 
-  drop_na(mental_health_tx_past_year_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_mental_health_tx_past_year_at_injury <- mental_health_tx_past_year_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, mental_health_tx_past_year_at_injury)
-
-# Create the counts plot
-gg.mental_health_tx_past_year_at_injury_by_depression <- ggplot(mental_health_tx_past_year_at_injury_by_depression_data,
-                                                                aes(x = depression_level_at_year_1,
-                                                                    fill = mental_health_tx_past_year_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_mental_health_tx_past_year_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Past-Year History of Mental Health Treatment at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-2_mental_health_tx_past_year_at_injury_by_depression_final_analytic_sample.png"),
-       gg.mental_health_tx_past_year_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 12-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(mental_health_tx_lifetime_at_injury = factor(mental_health_tx_lifetime_at_injury, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Filter out NA values in 'mental_health_tx_past_year_at_injury' to display counts
-mental_health_tx_past_year_at_injury_by_depression_data <- complete_cases_all |> 
-  drop_na(mental_health_tx_past_year_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_mental_health_tx_past_year_at_injury <- mental_health_tx_past_year_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, mental_health_tx_past_year_at_injury)
-
-# Create the counts plot
-gg.mental_health_tx_past_year_at_injury_by_depression <- ggplot(mental_health_tx_past_year_at_injury_by_depression_data,
-                                                                aes(x = depression_level_at_year_1,
-                                                                    fill = mental_health_tx_past_year_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_mental_health_tx_past_year_at_injury,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Past-Year History of Mental Health Treatment at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 600, by = 150)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-2_mental_health_tx_past_year_at_injury_by_depression_complete_case_sample.png"),
-       gg.mental_health_tx_past_year_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 12-3 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(mental_health_tx_lifetime_at_injury = factor(mental_health_tx_lifetime_at_injury, 
-                                                      levels = c("Denied any history of mental health treatment",
-                                                                 "Mental health treatment received prior to year preceding index injury only",
-                                                                 "Mental health treatment received within year preceding index injury")))
-
-# Filter out NA values in 'mental_health_tx_hx' to display counts
-mental_health_tx_hx_by_depression_data <- analytic_data_final |> 
-  drop_na(mental_health_tx_hx)
-
-# Calculate the counts for each depression level group
-count_data_mental_health_tx_hx <- mental_health_tx_hx_by_depression_data |>
-  count(depression_level_at_year_1, mental_health_tx_hx)
-
-# Create the counts plot
-gg.mental_health_tx_hx_by_depression <- ggplot(mental_health_tx_hx_by_depression_data,
-                                               aes(x = depression_level_at_year_1,
-                                                   fill = mental_health_tx_hx)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Denied any history of mental health treatment" = "#CFD8DC", 
-                               "Mental health treatment received prior to year preceding index injury only" = "#546E7A",
-                               "Mental health treatment received within year preceding index injury" = "#37474F")) +
-  geom_text(data = count_data_mental_health_tx_hx,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "History of Mental Health Treatment") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1200, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.direction = "vertical",
-    # legend.position = c(0.427, 0.85),
-    legend.background = element_rect(fill = "transparent"),
-    legend.text = element_text(size = 8.5)
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-3_mental_health_tx_hx_by_depression_final_analytic_sample.png"),
-       gg.mental_health_tx_hx_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 12-3 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(mental_health_tx_lifetime_at_injury = factor(mental_health_tx_lifetime_at_injury, 
-                                                      levels = c("Denied any history of mental health treatment",
-                                                                 "Mental health treatment received prior to year preceding index injury only",
-                                                                 "Mental health treatment received within year preceding index injury")))
-
-# Filter out NA values in 'mental_health_tx_hx' to display counts
-mental_health_tx_hx_by_depression_data <- complete_cases_all |> 
-  drop_na(mental_health_tx_hx)
-
-# Calculate the counts for each depression level group
-count_data_mental_health_tx_hx <- mental_health_tx_hx_by_depression_data |>
-  count(depression_level_at_year_1, mental_health_tx_hx)
-
-# Create the counts plot
-gg.mental_health_tx_hx_by_depression <- ggplot(mental_health_tx_hx_by_depression_data,
-                                               aes(x = depression_level_at_year_1,
-                                                   fill = mental_health_tx_hx)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Denied any history of mental health treatment" = "#CFD8DC", 
-                               "Mental health treatment received prior to year preceding index injury only" = "#546E7A",
-                               "Mental health treatment received within year preceding index injury" = "#37474F")) +
-  geom_text(data = count_data_mental_health_tx_hx,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF",
-                      "#0C1011", "#FFFFFF", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "History of Mental Health Treatment") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1200, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.direction = "vertical",
-    # legend.position = c(0.427, 0.85),
-    legend.background = element_rect(fill = "transparent"),
-    legend.text = element_text(size = 8.5)
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-3_mental_health_tx_hx_by_depression_complete_case_sample.png"),
-       gg.mental_health_tx_hx_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 12-4 (Final Analytic Sample)}
+```{r Plot Figure 5-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(mental_health_tx_hx = factor(mental_health_tx_hx, 
@@ -2309,13 +1150,13 @@ gg.mental_health_tx_hx_by_depression_pct <- ggplot(mental_health_tx_hx_by_depres
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-4_mental_health_tx_hx_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_5-1_mental_health_tx_hx_by_depression_pct_final_analytic_sample.png"), 
        gg.mental_health_tx_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 12-4 (Complete-Case Sample)}
+```{r Plot Figure 5-1 (Complete-Case Sample)}
 # Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(mental_health_tx_hx = factor(mental_health_tx_hx, 
                                       levels = c("Denied any history of mental health treatment",
                                                  "Mental health treatment received prior to year preceding index injury only",
@@ -2323,7 +1164,7 @@ complete_cases_all <- complete_cases_all |>
 
 # Create the percentages plot
 # Filter out NA values in 'mental_health_tx_hx' and calculate percentages
-mental_health_tx_hx_by_depression_pct_data <- complete_cases_all |> 
+mental_health_tx_hx_by_depression_pct_data <- complete_cases_select |> 
   drop_na(mental_health_tx_hx, depression_level_at_year_1) |>
   count(depression_level_at_year_1, mental_health_tx_hx) |> 
   group_by(depression_level_at_year_1) |>
@@ -2358,215 +1199,13 @@ gg.mental_health_tx_hx_by_depression_pct <- ggplot(mental_health_tx_hx_by_depres
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_12-4_mental_health_tx_hx_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_5-1_mental_health_tx_hx_by_depression_pct_complete_case_sample.png"), 
        gg.mental_health_tx_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 13-1 and 13-2: Counts and Percentages of History of Psychiatric Hospitalization by Year 1 Depression Level
+### Figures 6-1 and 6-2: Counts and Percentages of Problematic Substance Use at Injury by Year 1 Depression Level
 
-```{r Plot Figure 13-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
-                                levels = c("Denied any history of psychiatric hospitalization",
-                                           "Psychiatric hospital admission prior to year preceding index injury only",
-                                           "Psychiatric hospital admission within year preceding index injury")))
-
-# Filter out NA values in 'mental_health_tx_hx' to display counts
-psych_hosp_hx_by_depression_data <- analytic_data_final |> 
-  drop_na(psych_hosp_hx)
-
-# Calculate the counts for each depression level group
-count_data_psych_hosp_hx <- psych_hosp_hx_by_depression_data |>
-  count(depression_level_at_year_1, psych_hosp_hx)
-
-# Create the counts plot
-gg.psych_hosp_hx_by_depression <- ggplot(psych_hosp_hx_by_depression_data,
-                                         aes(x = depression_level_at_year_1,
-                                             fill = psych_hosp_hx)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
-                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
-                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
-  geom_text(data = count_data_psych_hosp_hx,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9), vjust = -1.75,
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "History of Psychiatric Hospitalization") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.direction = "vertical",
-    legend.background = element_rect(fill = "transparent"),
-    legend.text = element_text(size = 8)
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-1_psych_hosp_hx_by_depression_final_analytic_sample.png"),
-       gg.psych_hosp_hx_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 13-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
-                                levels = c("Denied any history of psychiatric hospitalization",
-                                           "Psychiatric hospital admission prior to year preceding index injury only",
-                                           "Psychiatric hospital admission within year preceding index injury")))
-
-# Filter out NA values in 'mental_health_tx_hx' to display counts
-psych_hosp_hx_by_depression_data <- complete_cases_all |> 
-  drop_na(psych_hosp_hx)
-
-# Calculate the counts for each depression level group
-count_data_psych_hosp_hx <- psych_hosp_hx_by_depression_data |>
-  count(depression_level_at_year_1, psych_hosp_hx)
-
-# Create the counts plot
-gg.psych_hosp_hx_by_depression <- ggplot(psych_hosp_hx_by_depression_data,
-                                         aes(x = depression_level_at_year_1,
-                                             fill = psych_hosp_hx)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
-                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
-                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
-  geom_text(data = count_data_psych_hosp_hx,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9), vjust = -1.75,
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "History of Psychiatric Hospitalization") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.direction = "vertical",
-    legend.background = element_rect(fill = "transparent"),
-    legend.text = element_text(size = 8)
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-1_psych_hosp_hx_by_depression_complete_case_sample.png"),
-       gg.psych_hosp_hx_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 13-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
-                                levels = c("Denied any history of psychiatric hospitalization",
-                                           "Psychiatric hospital admission prior to year preceding index injury only",
-                                           "Psychiatric hospital admission within year preceding index injury")))
-
-# Create the percentages plot
-# Filter out NA values in 'mental_health_tx_hx' and calculate percentages
-psych_hosp_hx_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(psych_hosp_hx, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, psych_hosp_hx) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.psych_hosp_hx_by_depression_pct <- ggplot(psych_hosp_hx_by_depression_pct_data,
-                                             aes(x = depression_level_at_year_1,
-                                                 y = pct,
-                                                 fill = psych_hosp_hx)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
-                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
-                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9), vjust = -2.0,
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "History of Psychiatric Hospitalization") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.direction = "vertical",
-    legend.background = element_rect(fill = "transparent"),
-    legend.text = element_text(size = 8)
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-2_psych_hosp_hx_by_depression_pct_final_analytic_sample.png"), 
-       gg.psych_hosp_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 13-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(psych_hosp_hx = factor(psych_hosp_hx, 
-                                levels = c("Denied any history of psychiatric hospitalization",
-                                           "Psychiatric hospital admission prior to year preceding index injury only",
-                                           "Psychiatric hospital admission within year preceding index injury")))
-
-# Create the percentages plot
-# Filter out NA values in 'mental_health_tx_hx' and calculate percentages
-psych_hosp_hx_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(psych_hosp_hx, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, psych_hosp_hx) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Add a new column to determine the vertical position of the text based on 'pct'
-psych_hosp_hx_by_depression_pct_data <- psych_hosp_hx_by_depression_pct_data |>
-  mutate(text_y_position = if_else(pct <= 5, pct + 1, pct / 2),  # Adjust the position above the bar slightly for <= 5%
-         text_vjust = if_else(pct <= 5, -1.0, 0))  # Use different vjust values based on the pct
-
-# Create the mechanism of injury by depression level percentages plot
-gg.psych_hosp_hx_by_depression_pct <- ggplot(psych_hosp_hx_by_depression_pct_data,
-                                             aes(x = depression_level_at_year_1,
-                                                 y = pct,
-                                                 fill = psych_hosp_hx)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("Denied any history of psychiatric hospitalization" = "#CFD8DC", 
-                               "Psychiatric hospital admission prior to year preceding index injury only" = "#546E7A",
-                               "Psychiatric hospital admission within year preceding index injury" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = text_y_position, vjust = text_vjust),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 2.75,
-            color = c("#0C1011", "#0C1011", "#0C1011",
-                      "#0C1011", "#FFFFFF", "#0C1011",
-                      "#0C1011", "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "History of Psychiatric Hospitalization") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.direction = "vertical",
-    legend.background = element_rect(fill = "transparent"),
-    legend.text = element_text(size = 8)
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_13-2_psych_hosp_hx_by_depression_pct_complete_case_sample.png"), 
-       gg.psych_hosp_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 14-1 and 14-2: Counts and Percentages of Problematic Substance Use at Injury by Year 1 Depression Level
-
-```{r Plot Figure 14-1 (Final Analytic Sample)}
+```{r Plot Figure 6-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
@@ -2608,19 +1247,19 @@ gg.problematic_substance_use_at_injury_by_depression <- ggplot(problematic_subst
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-1_problematic_substance_use_at_injury_by_depression_final_analytic_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-1_problematic_substance_use_at_injury_by_depression_final_analytic_sample.png"),
        gg.problematic_substance_use_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 14-1 (Complete-Case Sample)}
+```{r Plot Figure 6-1 (Complete-Case Sample)}
 # Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
                                                       levels = c("No",
                                                                  "Yes")))
 
 # Filter out NA values in 'problematic_substance_use_at_injury' to display counts
-problematic_substance_use_at_injury_by_depression_data <- complete_cases_all |> 
+problematic_substance_use_at_injury_by_depression_data <- complete_cases_select |> 
   drop_na(problematic_substance_use_at_injury)
 
 # Calculate the counts for each depression level group
@@ -2653,11 +1292,11 @@ gg.problematic_substance_use_at_injury_by_depression <- ggplot(problematic_subst
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-1_problematic_substance_use_at_injury_by_depression_complete_case_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-1_problematic_substance_use_at_injury_by_depression_complete_case_sample.png"),
        gg.problematic_substance_use_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 14-2 (Final Analytic Sample)}
+```{r Plot Figure 6-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
@@ -2699,20 +1338,20 @@ gg.problematic_substance_use_at_injury_by_depression_pct <- ggplot(problematic_s
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-2_problematic_substance_use_at_injury_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-2_problematic_substance_use_at_injury_by_depression_pct_final_analytic_sample.png"), 
        gg.problematic_substance_use_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 14-2 (Complete-Case Sample)}
+```{r Plot Figure 6-2 (Complete-Case Sample)}
 # Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(problematic_substance_use_at_injury = factor(problematic_substance_use_at_injury, 
                                                       levels = c("No",
                                                                  "Yes")))
 
 # Create the percentages plot
 # Filter out NA values in 'problematic_substance_use_at_injury' and calculate percentages
-problematic_substance_use_at_injury_by_depression_pct_data <- complete_cases_all |> 
+problematic_substance_use_at_injury_by_depression_pct_data <- complete_cases_select |> 
   drop_na(problematic_substance_use_at_injury, depression_level_at_year_1) |>
   count(depression_level_at_year_1, problematic_substance_use_at_injury) |> 
   group_by(depression_level_at_year_1) |>
@@ -2745,391 +1384,13 @@ gg.problematic_substance_use_at_injury_by_depression_pct <- ggplot(problematic_s
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_14-2_problematic_substance_use_at_injury_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_6-2_problematic_substance_use_at_injury_by_depression_pct_complete_case_sample.png"), 
        gg.problematic_substance_use_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-### Figures 15-1 and 15-2: Counts and Percentages of Problematic Substance Use at Year 1 by Year 1 Depression Level
+### Figures 7-1 and 7-2: Counts and Percentages of History of Suicide Attempt by Year 1 Depression Level
 
-```{r Plot Figure 15-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Filter out NA values in 'problematic_substance_use_at_year_1' to display counts
-problematic_substance_use_at_year_1_by_depression_data <- analytic_data_final |> 
-  drop_na(problematic_substance_use_at_year_1)
-
-# Calculate the counts for each depression level group
-count_data_problematic_substance_use_at_year_1 <- problematic_substance_use_at_year_1_by_depression_data |>
-  count(depression_level_at_year_1, problematic_substance_use_at_year_1)
-
-# Create the counts plot
-gg.problematic_substance_use_at_year_1_by_depression <- ggplot(problematic_substance_use_at_year_1_by_depression_data,
-                                                        aes(x = depression_level_at_year_1,
-                                                            fill = problematic_substance_use_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_problematic_substance_use_at_year_1,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Problematic Substance Use at Year 1") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1000, by = 200)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-1_problematic_substance_use_at_year_1_by_depression_final_analytic_sample.png"), 
-       gg.problematic_substance_use_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 15-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Filter out NA values in 'problematic_substance_use_at_year_1' to display counts
-problematic_substance_use_at_year_1_by_depression_data <- complete_cases_all |> 
-  drop_na(problematic_substance_use_at_year_1)
-
-# Calculate the counts for each depression level group
-count_data_problematic_substance_use_at_year_1 <- problematic_substance_use_at_year_1_by_depression_data |>
-  count(depression_level_at_year_1, problematic_substance_use_at_year_1)
-
-# Create the counts plot
-gg.problematic_substance_use_at_year_1_by_depression <- ggplot(problematic_substance_use_at_year_1_by_depression_data,
-                                                        aes(x = depression_level_at_year_1,
-                                                            fill = problematic_substance_use_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_problematic_substance_use_at_year_1,
-            aes(y = n/2, label = scales::comma(n)),  # Center text in the middle of each bar and format text with commas
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Problematic Substance Use at Year 1") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 500, by = 150)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right",
-    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-1_problematic_substance_use_at_year_1_by_depression_complete_case_sample.png"), 
-       gg.problematic_substance_use_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 15-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'problematic_substance_use_at_year_1' and calculate percentages
-problematic_substance_use_at_year_1_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(problematic_substance_use_at_year_1, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, problematic_substance_use_at_year_1) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.problematic_substance_use_at_year_1_by_depression_pct <- ggplot(problematic_substance_use_at_year_1_by_depression_pct_data,
-                                                                   aes(x = depression_level_at_year_1, 
-                                                                       y = pct,
-                                                                       fill = problematic_substance_use_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,  # Position text in the middle of the bars
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Problematic Substance Use at Year 1") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-2_problematic_substance_use_at_year_1_by_depression_pct_final_analytic_sample.png"), 
-       gg.problematic_substance_use_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 15-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(problematic_substance_use_at_year_1 = factor(problematic_substance_use_at_year_1, 
-                                                      levels = c("No",
-                                                                 "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'problematic_substance_use_at_year_1' and calculate percentages
-problematic_substance_use_at_year_1_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(problematic_substance_use_at_year_1, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, problematic_substance_use_at_year_1) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.problematic_substance_use_at_year_1_by_depression_pct <- ggplot(problematic_substance_use_at_year_1_by_depression_pct_data,
-                                                                   aes(x = depression_level_at_year_1, 
-                                                                       y = pct,
-                                                                       fill = problematic_substance_use_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2),  # Center text in the middle of each bar and format with one decimal place
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,  # Position text in the middle of the bars
-            color = c("#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Problematic Substance Use at Year 1") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 20)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_15-2_problematic_substance_use_at_year_1_by_depression_pct_complete_case_sample.png"), 
-       gg.problematic_substance_use_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 16-1 and 16-2: Counts and Percentages of Lifetime Suicide Attempt at Injury and History of Suicide Attempt by Year 1 Depression Level
-
-```{r Plot Figure 16-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
-                                                        levels = c("No",
-                                                                   "Yes")))
-
-# Filter out NA values in 'suicide_attempt_hx_lifetime_at_injury' to display counts
-suicide_attempt_hx_lifetime_at_injury_by_depression_data <- analytic_data_final |> 
-  drop_na(suicide_attempt_hx_lifetime_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_suicide_attempt_hx_lifetime_at_injury <- suicide_attempt_hx_lifetime_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, suicide_attempt_hx_lifetime_at_injury)
-
-# Create the counts plot
-gg.suicide_attempt_hx_lifetime_at_injury_by_depression <- ggplot(suicide_attempt_hx_lifetime_at_injury_by_depression_data,
-                                                           aes(x = depression_level_at_year_1,
-                                                               fill = suicide_attempt_hx_lifetime_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_suicide_attempt_hx_lifetime_at_injury,
-            aes(y = ifelse(n <= 75, n + 10, n/2),
-                label = scales::comma(n),
-                vjust = ifelse(n <= 50, -0.25, 0.5)
-            ),
-            position = position_dodge(width = 0.9), vjust = -0.25,
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Lifetime History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 2000, by = 250)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-1_suicide_attempt_hx_lifetime_at_injury_by_depression_final_analytic_sample.png"), 
-       gg.suicide_attempt_hx_lifetime_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 16-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
-                                                        levels = c("No",
-                                                                   "Yes")))
-
-# Filter out NA values in 'suicide_attempt_hx_lifetime_at_injury' to display counts
-suicide_attempt_hx_lifetime_at_injury_by_depression_data <- complete_cases_all |> 
-  drop_na(suicide_attempt_hx_lifetime_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_suicide_attempt_hx_lifetime_at_injury <- suicide_attempt_hx_lifetime_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, suicide_attempt_hx_lifetime_at_injury)
-
-# Create the counts plot
-gg.suicide_attempt_hx_lifetime_at_injury_by_depression <- ggplot(suicide_attempt_hx_lifetime_at_injury_by_depression_data,
-                                                           aes(x = depression_level_at_year_1,
-                                                               fill = suicide_attempt_hx_lifetime_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_suicide_attempt_hx_lifetime_at_injury,
-            aes(y = ifelse(n <= 75, n + 10, n/2),
-                label = scales::comma(n),
-                vjust = ifelse(n <= 50, -0.25, 0.5)
-            ),
-            position = position_dodge(width = 0.9), vjust = -0.25,
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Lifetime History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 750, by = 150)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-1_suicide_attempt_hx_lifetime_at_injury_by_depression_complete_case_sample.png"), 
-       gg.suicide_attempt_hx_lifetime_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 16-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
-                                                        levels = c("No",
-                                                                   "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'suicide_attempt_hx_lifetime_at_injury' and calculate percentages
-suicide_attempt_hx_lifetime_at_injury_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(suicide_attempt_hx_lifetime_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, suicide_attempt_hx_lifetime_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct <- ggplot(suicide_attempt_hx_lifetime_at_injury_by_depression_pct_data,
-                                                                     aes(x = depression_level_at_year_1, y = pct,
-                                                                         fill = suicide_attempt_hx_lifetime_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct),
-                y = ifelse(pct <= 5, pct + 1, pct / 2),  # Adjust position based on pct value
-                vjust = ifelse(pct <= 5, -0.25, 0.5)),  # Adjust vertical justification
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Lifetime History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-2_suicide_attempt_hx_lifetime_at_injury_by_depression_pct_final_analytic_sample.png"), 
-       gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 16-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(suicide_attempt_hx_lifetime_at_injury = factor(suicide_attempt_hx_lifetime_at_injury, 
-                                                        levels = c("No",
-                                                                   "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'suicide_attempt_hx_lifetime_at_injury' and calculate percentages
-suicide_attempt_hx_lifetime_at_injury_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(suicide_attempt_hx_lifetime_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, suicide_attempt_hx_lifetime_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct <- ggplot(suicide_attempt_hx_lifetime_at_injury_by_depression_pct_data,
-                                                                     aes(x = depression_level_at_year_1, y = pct,
-                                                                         fill = suicide_attempt_hx_lifetime_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct),
-                y = ifelse(pct <= 5, pct + 1, pct / 2),  # Adjust position based on pct value
-                vjust = ifelse(pct <= 5, -0.25, 0.5)),  # Adjust vertical justification
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,  # Position text in the middle of the bars
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#FFFFFF",
-                      "#0C1011", "#FFFFFF")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Lifetime History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-2_suicide_attempt_hx_lifetime_at_injury_by_depression_pct_complete_case_sample.png"), 
-       gg.suicide_attempt_hx_lifetime_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot Figure 16-3 (Final Analytic Sample)}
+```{r Plot Figure 7-1 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
@@ -3174,20 +1435,20 @@ gg.suicide_attempt_hx_by_depression <- ggplot(suicide_attempt_hx_by_depression_d
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-3_suicide_attempt_hx_by_depression_final_analytic_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-1_suicide_attempt_hx_by_depression_final_analytic_sample.png"),
        gg.suicide_attempt_hx_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 16-3 (Complete-Case Sample)}
+```{r Plot Figure 7-1 (Complete-Case Sample)}
 # Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
                                      levels = c("Denied any history of suicide attempt",
                                                 "Suicide attempt history prior to injury",
                                                 "Suicide attempt in the first year post-injury")))
 
 # Filter out NA values in 'suicide_attempt_hx' to display counts
-suicide_attempt_hx_by_depression_data <- complete_cases_all |> 
+suicide_attempt_hx_by_depression_data <- complete_cases_select |> 
   drop_na(suicide_attempt_hx)
 
 # Calculate the counts for each depression level group
@@ -3222,11 +1483,11 @@ gg.suicide_attempt_hx_by_depression <- ggplot(suicide_attempt_hx_by_depression_d
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-3_suicide_attempt_hx_by_depression_complete_case_sample.png"),
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-1_suicide_attempt_hx_by_depression_complete_case_sample.png"),
        gg.suicide_attempt_hx_by_depression, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 16-4 (Final Analytic Sample)}
+```{r Plot Figure 7-2 (Final Analytic Sample)}
 # Relevel the factor variable
 analytic_data_final <- analytic_data_final |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
@@ -3272,13 +1533,13 @@ gg.suicide_attempt_hx_by_depression_pct <- ggplot(suicide_attempt_hx_by_depressi
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-4_suicide_attempt_hx_by_depression_pct_final_analytic_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-2_suicide_attempt_hx_by_depression_pct_final_analytic_sample.png"), 
        gg.suicide_attempt_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
 
-```{r Plot Figure 16-4 (Complete-Case Sample)}
+```{r Plot Figure 7-2 (Complete-Case Sample)}
 # Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
+complete_cases_select <- complete_cases_select |>
   mutate(suicide_attempt_hx = factor(suicide_attempt_hx, 
                                      levels = c("Denied any history of suicide attempt",
                                                 "Suicide attempt history prior to injury",
@@ -3286,7 +1547,7 @@ complete_cases_all <- complete_cases_all |>
 
 # Create the percentages plot
 # Filter out NA values in 'mental_health_tx_hx' and calculate percentages
-suicide_attempt_hx_by_depression_pct_data <- complete_cases_all |> 
+suicide_attempt_hx_by_depression_pct_data <- complete_cases_select |> 
   drop_na(suicide_attempt_hx, depression_level_at_year_1) |>
   count(depression_level_at_year_1, suicide_attempt_hx) |> 
   group_by(depression_level_at_year_1) |>
@@ -3322,384 +1583,6 @@ gg.suicide_attempt_hx_by_depression_pct <- ggplot(suicide_attempt_hx_by_depressi
   )
 
 # Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_16-4_suicide_attempt_hx_by_depression_pct_complete_case_sample.png"), 
+ggsave(here(univariate_and_bivariate_plots_dir, "figure_7-2_suicide_attempt_hx_by_depression_pct_complete_case_sample.png"), 
        gg.suicide_attempt_hx_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 17-1 and 17-2: Counts and Percentages of Past-Year Suicide Attempt at Injury by Year 1 Depression Level
-
-```{r Plot 17-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_injury' to display counts
-suicide_attempt_hx_past_year_at_injury_by_depression_data <- analytic_data_final |> 
-  drop_na(suicide_attempt_hx_past_year_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_suicide_attempt_hx_past_year_at_injury <- suicide_attempt_hx_past_year_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_injury)
-
-# Create the counts plot
-gg.suicide_attempt_hx_past_year_at_injury_by_depression <- ggplot(suicide_attempt_hx_past_year_at_injury_by_depression_data,
-                                                           aes(x = depression_level_at_year_1,
-                                                               fill = suicide_attempt_hx_past_year_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_suicide_attempt_hx_past_year_at_injury,
-            aes(label = scales::comma(n), y = n/2,  # Center text in the middle of each bar and format text with commas
-                vjust = ifelse(n <= 50, -1.25, 0.5)),
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Past-Year History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1400, by = 250)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-1_suicide_attempt_hx_past_year_at_injury_by_depression_final_analytic_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot 17-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_injury' to display counts
-suicide_attempt_hx_past_year_at_injury_by_depression_data <- complete_cases_all |> 
-  drop_na(suicide_attempt_hx_past_year_at_injury)
-
-# Calculate the counts for each depression level group
-count_data_suicide_attempt_hx_past_year_at_injury <- suicide_attempt_hx_past_year_at_injury_by_depression_data |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_injury)
-
-# Create the counts plot
-gg.suicide_attempt_hx_past_year_at_injury_by_depression <- ggplot(suicide_attempt_hx_past_year_at_injury_by_depression_data,
-                                                           aes(x = depression_level_at_year_1,
-                                                               fill = suicide_attempt_hx_past_year_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_suicide_attempt_hx_past_year_at_injury,
-            aes(label = scales::comma(n), y = n/2,  # Center text in the middle of each bar and format text with commas
-                vjust = ifelse(n <= 50, -1.25, 0.5)),
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Past-Year History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 750, by = 150)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-1_suicide_attempt_hx_past_year_at_injury_by_depression_complete_case_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_injury_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot 17-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_injury' and calculate percentages
-suicide_attempt_hx_past_year_at_injury_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(suicide_attempt_hx_past_year_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct <- ggplot(suicide_attempt_hx_past_year_at_injury_by_depression_pct_data,
-                                                                   aes(x = depression_level_at_year_1, y = pct,
-                                                                       fill = suicide_attempt_hx_past_year_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2,  # Center text in the middle of each bar and format with one decimal place
-                vjust = ifelse(pct <= 5.0, -2.0, 0.5)),
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Past-Year History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-2_suicide_attempt_hx_past_year_at_injury_by_depression_pct_final_analytic_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot 17-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(suicide_attempt_hx_past_year_at_injury = factor(suicide_attempt_hx_past_year_at_injury, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_injury' and calculate percentages
-suicide_attempt_hx_past_year_at_injury_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(suicide_attempt_hx_past_year_at_injury, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_injury) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct <- ggplot(suicide_attempt_hx_past_year_at_injury_by_depression_pct_data,
-                                                                   aes(x = depression_level_at_year_1, y = pct,
-                                                                       fill = suicide_attempt_hx_past_year_at_injury)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct), y = pct / 2,  # Center text in the middle of each bar and format with one decimal place
-                vjust = ifelse(pct <= 5.0, -2.0, 0.5)),
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Past-Year History of Suicide Attempt at Injury") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_17-2_suicide_attempt_hx_past_year_at_injury_by_depression_pct_complete_case_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_injury_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-### Figures 18-1 and 18-2: Counts and Percentages of Past-Year Suicide Attempt at Year 1 by Year 1 Depression Level
-
-```{r Plot 18-1 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_year_1' to display counts
-suicide_attempt_hx_past_year_at_year_1_by_depression_data <- analytic_data_final |> 
-  drop_na(suicide_attempt_hx_past_year_at_year_1)
-
-# Calculate the counts for each depression level group
-count_data_suicide_attempt_hx_past_year_at_year_1 <- suicide_attempt_hx_past_year_at_year_1_by_depression_data |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_year_1)
-
-# Create the counts plot
-gg.suicide_attempt_hx_past_year_at_year_1_by_depression <- ggplot(suicide_attempt_hx_past_year_at_year_1_by_depression_data,
-                                                           aes(x = depression_level_at_year_1,
-                                                               fill = suicide_attempt_hx_past_year_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_suicide_attempt_hx_past_year_at_year_1,
-            aes(y = ifelse(n <= 50, n + 10, n/2),
-                label = scales::comma(n),
-                vjust = ifelse(n <= 50, -0.75, 0.5)),
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Past-Year History of Suicide Attempt at Year 1") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 2250, by = 250)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-1_suicide_attempt_hx_past_year_at_year_1_by_depression_final_analytic_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot 18-1 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_year_1' to display counts
-suicide_attempt_hx_past_year_at_year_1_by_depression_data <- complete_cases_all |> 
-  drop_na(suicide_attempt_hx_past_year_at_year_1)
-
-# Calculate the counts for each depression level group
-count_data_suicide_attempt_hx_past_year_at_year_1 <- suicide_attempt_hx_past_year_at_year_1_by_depression_data |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_year_1)
-
-# Create the counts plot
-gg.suicide_attempt_hx_past_year_at_year_1_by_depression <- ggplot(suicide_attempt_hx_past_year_at_year_1_by_depression_data,
-                                                           aes(x = depression_level_at_year_1,
-                                                               fill = suicide_attempt_hx_past_year_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "count", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(data = count_data_suicide_attempt_hx_past_year_at_year_1,
-            aes(y = ifelse(n <= 50, n + 10, n/2),
-                label = scales::comma(n),
-                vjust = ifelse(n <= 50, -0.75, 0.5)),
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Count", fill = "Past-Year History of Suicide Attempt at Year 1") +
-  scale_y_continuous(labels = scales::comma, breaks = seq(0, 2250, by = 250)) +
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-1_suicide_attempt_hx_past_year_at_year_1_by_depression_complete_case_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_year_1_by_depression, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot 18-2 (Final Analytic Sample)}
-# Relevel the factor variable
-analytic_data_final <- analytic_data_final |>
-  mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_year_1' and calculate percentages
-suicide_attempt_hx_past_year_at_year_1_by_depression_pct_data <- analytic_data_final |> 
-  drop_na(suicide_attempt_hx_past_year_at_year_1, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_year_1) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct <- ggplot(suicide_attempt_hx_past_year_at_year_1_by_depression_pct_data,
-                                                                   aes(x = depression_level_at_year_1, y = pct,
-                                                                       fill = suicide_attempt_hx_past_year_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct),
-                y = ifelse(pct <= 5, pct + 1, pct / 2),  # Adjust position based on pct value
-                vjust = ifelse(pct <= 5.0, -0.75, 0.5)),  # Adjust vertical justification
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Past-Year History of Suicide Attempt at Year 1") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-2_suicide_attempt_hx_past_year_at_year_1_by_depression_pct_final_analytic_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
-```
-
-```{r Plot 18-2 (Complete-Case Sample)}
-# Relevel the factor variable
-complete_cases_all <- complete_cases_all |>
-  mutate(suicide_attempt_hx_past_year_at_year_1 = factor(suicide_attempt_hx_past_year_at_year_1, 
-                                                         levels = c("No",
-                                                                    "Yes")))
-
-# Create the percentages plot
-# Filter out NA values in 'suicide_attempt_hx_past_year_at_year_1' and calculate percentages
-suicide_attempt_hx_past_year_at_year_1_by_depression_pct_data <- complete_cases_all |> 
-  drop_na(suicide_attempt_hx_past_year_at_year_1, depression_level_at_year_1) |>
-  count(depression_level_at_year_1, suicide_attempt_hx_past_year_at_year_1) |> 
-  group_by(depression_level_at_year_1) |>
-  mutate(pct = n / sum(n) * 100)
-
-# Create the mechanism of injury by depression level percentages plot
-gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct <- ggplot(suicide_attempt_hx_past_year_at_year_1_by_depression_pct_data,
-                                                                   aes(x = depression_level_at_year_1, y = pct,
-                                                                       fill = suicide_attempt_hx_past_year_at_year_1)) +
-  geom_bar(position = position_dodge(), stat = "identity", color = "#263238", linewidth = 0.75) +
-  scale_fill_manual(values = c("No" = "#CFD8DC", 
-                               "Yes" = "#37474F")) +
-  geom_text(aes(label = sprintf("%.1f%%", pct),
-                y = ifelse(pct <= 5, pct + 1, pct / 2),  # Adjust position based on pct value
-                vjust = ifelse(pct <= 5.0, -0.75, 0.5)),  # Adjust vertical justification
-            position = position_dodge(width = 0.9),
-            family = "Proxima Nova",
-            fontface = "bold",
-            size = 3,
-            color = c("#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011",
-                      "#0C1011", "#0C1011")) +
-  labs(x = "Depression Level at Year 1", y = "Percentage", fill = "Past-Year History of Suicide Attempt at Year 1") +
-  scale_y_continuous(labels = function(x) paste0(x, "%"),
-                     breaks = seq(0, 100, by = 10)) +  # Set breaks at every 10%
-  theme_classic() +
-  customization +
-  theme(
-    legend.justification = "right",
-    legend.box.just = "right"
-  )
-
-# Save the plot
-ggsave(here(univariate_and_bivariate_plots_dir, "figure_18-2_suicide_attempt_hx_past_year_at_year_1_by_depression_pct_complete_case_sample.png"), 
-       gg.suicide_attempt_hx_past_year_at_year_1_by_depression_pct, bg = "#FFFFFF", dpi = 300)
 ```
